@@ -2,12 +2,6 @@
 
 Build AI agent teams that work together. One agent plans, another implements, a third reviews — the framework handles task scheduling, dependencies, and communication automatically.
 
-[![GitHub stars](https://img.shields.io/github/stars/JackChen-me/open-multi-agent)](https://github.com/JackChen-me/open-multi-agent/stargazers)
-[![license](https://img.shields.io/github/license/JackChen-me/open-multi-agent)](./LICENSE)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
-
-**English** | [中文](./README_zh.md)
-
 ## Why Open Multi-Agent?
 
 - **Multi-Agent Teams** — Define agents with different roles, tools, and even different models. They collaborate through a message bus and shared memory.
