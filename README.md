@@ -1,276 +1,126 @@
-# Open Multi-Agent
+<div align="center">
 
-Build AI agent teams that work together. One agent plans, another implements, a third reviews — the framework handles task scheduling, dependencies, and communication automatically.
+# ⚡ Eschaton Code
 
-## Why Open Multi-Agent?
+**Production-Grade Multi-Agent Orchestration Framework & Autonomous Terminal Coding Agent**
 
-- **Multi-Agent Teams** — Define agents with different roles, tools, and even different models. They collaborate through a message bus and shared memory.
-- **Task DAG Scheduling** — Tasks have dependencies. The framework resolves them topologically — dependent tasks wait, independent tasks run in parallel.
-- **Model Agnostic** — Claude and GPT in the same team. Swap models per agent. Bring your own adapter for any LLM.
-- **In-Process Execution** — No subprocess overhead. Everything runs in one Node.js process. Deploy to serverless, Docker, CI/CD.
+[![npm version](https://img.shields.io/badge/npm-v1.0.1-cb3837?style=flat-square&logo=npm)](https://github.com/Tarikdxd/Eschaton-Code/packages)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Stars](https://img.shields.io/github/stars/Tarikdxd/Eschaton-Code?style=flat-square&color=yellow)](https://github.com/Tarikdxd/Eschaton-Code)
 
-## Quick Start
+*Build autonomous AI agent teams that collaborate in real time, or launch an interactive terminal coding agent right in your command line with a single command.*
 
+---
+
+</div>
+
+## 🚀 Quick Terminal Launch (CLI Agent)
+
+You don't need complex configurations to start. Run **Eschaton Code** instantly just like Claude Code:
+
+### Option 1: Zero-Install Instant Run (via `npx`)
 ```bash
-npm install eschaton-code
+npx @tarikdxd/eschaton-code
 ```
 
-Set `ANTHROPIC_API_KEY` (and optionally `OPENAI_API_KEY`) in your environment.
+### Option 2: Global Installation (Recommended)
+```bash
+npm install -g @tarikdxd/eschaton-code
+```
 
+Once installed, simply launch your autonomous terminal agent anywhere by typing:
+```bash
+eschaton
+```
+
+```text
+╔══════════════════════════════════════════════════════════════════════╗
+║                    ⚡ ESCHATON CODE CLI AGENT                        ║
+║          Autonomous Multi-Agent Terminal Orchestration Engine        ║
+║                       Developer: @Tarikdxd                           ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+eschaton> /team Build an authenticated REST API with SQLite and JWT
+[⚡ OTONOM AJAN TAKIMI BAŞLATILDI]
+-> [Planner] Decomposing goals into topological DAG tasks...
+-> [Researcher] Analyzing dependencies and schemas...
+-> [Coder] Generating modular source files and tests...
+-> [Reviewer] Auditing security, syntax, and zero-leak compliance...
+[✓] Task Completed Successfully!
+```
+
+---
+
+## 🛠️ CLI Interactive Command Matrix
+
+| Command | Action | Description |
+| :--- | :--- | :--- |
+| `eschaton` | **Launch Agent** | Opens interactive terminal REPL agent session |
+| `/agent <task>` | **Single Agent** | Runs a dedicated autonomous agent with file/bash execution tools |
+| `/team <goal>` | **Multi-Agent Team** | Spawns a full team (*Planner*, *Researcher*, *Coder*, *Reviewer*) resolving DAG tasks |
+| `/tools` | **Inspect Tool Matrix** | Lists built-in tools (`bash`, `file_read`, `file_write`, `file_edit`, `grep`) |
+| `/exit` | **Terminate** | Safely shuts down agent session and saves memory |
+
+---
+
+## 📦 Programmatic SDK Usage (Library)
+
+If you're building your own autonomous AI agent systems in Node.js / TypeScript:
+
+```bash
+npm install @tarikdxd/eschaton-code
+```
+
+### 1. Single Agent Workflow
 ```typescript
-import { OpenMultiAgent } from 'eschaton-code'
+import { OpenMultiAgent } from '@tarikdxd/eschaton-code'
 
 const orchestrator = new OpenMultiAgent({ defaultModel: 'claude-sonnet-4-6' })
 
-// One agent, one task
 const result = await orchestrator.runAgent(
   {
     name: 'coder',
     model: 'claude-sonnet-4-6',
-    tools: ['bash', 'file_write'],
+    tools: ['bash', 'file_write', 'file_read'],
   },
-  'Write a TypeScript function that reverses a string, save it to /tmp/reverse.ts, and run it.',
+  'Refactor the authentication middleware to support JWT refresh rotation.',
 )
 
 console.log(result.output)
 ```
 
-## Multi-Agent Team
-
-This is where it gets interesting. Three agents, one goal:
-
+### 2. Multi-Agent Team with DAG Scheduling
 ```typescript
-import { OpenMultiAgent } from 'eschaton-code'
-import type { AgentConfig } from 'eschaton-code'
+import { OpenMultiAgent } from '@tarikdxd/eschaton-code'
 
-const architect: AgentConfig = {
-  name: 'architect',
-  model: 'claude-sonnet-4-6',
-  systemPrompt: 'You design clean API contracts and file structures.',
-  tools: ['file_write'],
-}
+const orchestrator = new OpenMultiAgent()
 
-const developer: AgentConfig = {
-  name: 'developer',
-  model: 'claude-sonnet-4-6',
-  systemPrompt: 'You implement what the architect designs.',
-  tools: ['bash', 'file_read', 'file_write', 'file_edit'],
-}
-
-const reviewer: AgentConfig = {
-  name: 'reviewer',
-  model: 'claude-sonnet-4-6',
-  systemPrompt: 'You review code for correctness and clarity.',
-  tools: ['file_read', 'grep'],
-}
-
-const orchestrator = new OpenMultiAgent({
-  defaultModel: 'claude-sonnet-4-6',
-  onProgress: (event) => console.log(event.type, event.agent ?? event.task ?? ''),
+const team = orchestrator.createTeam('engineering-dept', {
+  name: 'engineering',
+  agents: [
+    { name: 'architect', model: 'claude-sonnet-4-6', systemPrompt: 'You design modular system architectures.' },
+    { name: 'developer', model: 'gpt-4o', tools: ['file_write', 'file_read'], systemPrompt: 'You implement clean code.' },
+    { name: 'security',  model: 'claude-sonnet-4-6', systemPrompt: 'You audit code for vulnerabilities and leak risks.' }
+  ],
+  sharedMemory: true
 })
 
-const team = orchestrator.createTeam('api-team', {
-  name: 'api-team',
-  agents: [architect, developer, reviewer],
-  sharedMemory: true,
-})
-
-// Describe a goal — the framework breaks it into tasks and orchestrates execution
-const result = await orchestrator.runTeam(team, 'Create a REST API for a todo list in /tmp/todo-api/')
-
-console.log(`Success: ${result.success}`)
-console.log(`Tokens: ${result.totalTokenUsage.output_tokens} output tokens`)
+const result = await orchestrator.runTeam(team, 'Design and implement an encrypted rate-limiter middleware.')
 ```
 
-## More Examples
+---
 
-<details>
-<summary><b>Task Pipeline</b> — explicit control over task graph and assignments</summary>
+## ✨ Core Framework Architecture
 
-```typescript
-const result = await orchestrator.runTasks(team, [
-  {
-    title: 'Design the data model',
-    description: 'Write a TypeScript interface spec to /tmp/spec.md',
-    assignee: 'architect',
-  },
-  {
-    title: 'Implement the module',
-    description: 'Read /tmp/spec.md and implement the module in /tmp/src/',
-    assignee: 'developer',
-    dependsOn: ['Design the data model'], // blocked until design completes
-  },
-  {
-    title: 'Write tests',
-    description: 'Read the implementation and write Vitest tests.',
-    assignee: 'developer',
-    dependsOn: ['Implement the module'],
-  },
-  {
-    title: 'Review code',
-    description: 'Review /tmp/src/ and produce a structured code review.',
-    assignee: 'reviewer',
-    dependsOn: ['Implement the module'], // can run in parallel with tests
-  },
-])
-```
+- 🧩 **Topological DAG Task Scheduling:** Tasks declare dependencies. Independent tasks execute concurrently; dependent tasks wait automatically.
+- 🔄 **Model-Agnostic Engine:** Mix Claude 3.7 / 3.5 Sonnet and GPT-4o within the same collaborative agent team.
+- 🪶 **In-Process High Performance:** Zero container or subprocess overhead. Pure Node.js async event loop execution.
+- 💾 **Shared Memory & Event Bus:** Real-time inter-agent messaging and shared state synchronization.
 
-</details>
+---
 
-<details>
-<summary><b>Custom Tools</b> — define tools with Zod schemas</summary>
+## 📄 License
 
-```typescript
-import { z } from 'zod'
-import { defineTool, Agent, ToolRegistry, ToolExecutor, registerBuiltInTools } from 'eschaton-code'
-
-const searchTool = defineTool({
-  name: 'web_search',
-  description: 'Search the web and return the top results.',
-  inputSchema: z.object({
-    query: z.string().describe('The search query.'),
-    maxResults: z.number().optional().describe('Number of results (default 5).'),
-  }),
-  execute: async ({ query, maxResults = 5 }) => {
-    const results = await mySearchProvider(query, maxResults)
-    return { data: JSON.stringify(results), isError: false }
-  },
-})
-
-const registry = new ToolRegistry()
-registerBuiltInTools(registry)
-registry.register(searchTool)
-
-const executor = new ToolExecutor(registry)
-const agent = new Agent(
-  { name: 'researcher', model: 'claude-sonnet-4-6', tools: ['web_search'] },
-  registry,
-  executor,
-)
-
-const result = await agent.run('Find the three most recent TypeScript releases.')
-```
-
-</details>
-
-<details>
-<summary><b>Multi-Model Teams</b> — mix Claude and GPT in one workflow</summary>
-
-```typescript
-const claudeAgent: AgentConfig = {
-  name: 'strategist',
-  model: 'claude-opus-4-6',
-  provider: 'anthropic',
-  systemPrompt: 'You plan high-level approaches.',
-  tools: ['file_write'],
-}
-
-const gptAgent: AgentConfig = {
-  name: 'implementer',
-  model: 'gpt-5.4',
-  provider: 'openai',
-  systemPrompt: 'You implement plans as working code.',
-  tools: ['bash', 'file_read', 'file_write'],
-}
-
-const team = orchestrator.createTeam('mixed-team', {
-  name: 'mixed-team',
-  agents: [claudeAgent, gptAgent],
-  sharedMemory: true,
-})
-
-const result = await orchestrator.runTeam(team, 'Build a CLI tool that converts JSON to CSV.')
-```
-
-</details>
-
-<details>
-<summary><b>Streaming Output</b></summary>
-
-```typescript
-import { Agent, ToolRegistry, ToolExecutor, registerBuiltInTools } from 'eschaton-code'
-
-const registry = new ToolRegistry()
-registerBuiltInTools(registry)
-const executor = new ToolExecutor(registry)
-
-const agent = new Agent(
-  { name: 'writer', model: 'claude-sonnet-4-6', maxTurns: 3 },
-  registry,
-  executor,
-)
-
-for await (const event of agent.stream('Explain monads in two sentences.')) {
-  if (event.type === 'text' && typeof event.data === 'string') {
-    process.stdout.write(event.data)
-  }
-}
-```
-
-</details>
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  OpenMultiAgent (Orchestrator)                                  │
-│                                                                 │
-│  createTeam()  runTeam()  runTasks()  runAgent()  getStatus()   │
-└──────────────────────┬──────────────────────────────────────────┘
-                       │
-            ┌──────────▼──────────┐
-            │  Team               │
-            │  - AgentConfig[]    │
-            │  - MessageBus       │
-            │  - TaskQueue        │
-            │  - SharedMemory     │
-            └──────────┬──────────┘
-                       │
-         ┌─────────────┴─────────────┐
-         │                           │
-┌────────▼──────────┐    ┌───────────▼───────────┐
-│  AgentPool        │    │  TaskQueue             │
-│  - Semaphore      │    │  - dependency graph    │
-│  - runParallel()  │    │  - auto unblock        │
-└────────┬──────────┘    │  - cascade failure     │
-         │               └───────────────────────┘
-┌────────▼──────────┐
-│  Agent            │
-│  - run()          │    ┌──────────────────────┐
-│  - prompt()       │───►│  LLMAdapter          │
-│  - stream()       │    │  - AnthropicAdapter  │
-└────────┬──────────┘    │  - OpenAIAdapter     │
-         │               └──────────────────────┘
-┌────────▼──────────┐
-│  AgentRunner      │    ┌──────────────────────┐
-│  - conversation   │───►│  ToolRegistry        │
-│    loop           │    │  - defineTool()      │
-│  - tool dispatch  │    │  - 5 built-in tools  │
-└───────────────────┘    └──────────────────────┘
-```
-
-## Built-in Tools
-
-| Tool | Description |
-|------|-------------|
-| `bash` | Execute shell commands. Returns stdout + stderr. Supports timeout and cwd. |
-| `file_read` | Read file contents at an absolute path. Supports offset/limit for large files. |
-| `file_write` | Write or create a file. Auto-creates parent directories. |
-| `file_edit` | Edit a file by replacing an exact string match. |
-| `grep` | Search file contents with regex. Uses ripgrep when available, falls back to Node.js. |
-
-## Contributing
-
-Issues, feature requests, and PRs are welcome. Some areas where contributions would be especially valuable:
-
-- **LLM Adapters** — Ollama, llama.cpp, vLLM, Gemini. The `LLMAdapter` interface requires just two methods: `chat()` and `stream()`.
-- **Examples** — Real-world workflows and use cases.
-- **Documentation** — Guides, tutorials, and API docs.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Tarikdxd/eschaton-code&type=Date)](https://star-history.com/#Tarikdxd/eschaton-code&Date)
-
-## License
-
-MIT
+Distributed under the [MIT License](LICENSE). Developed by [Tarık Tozlu (@Tarikdxd)](https://github.com/Tarikdxd).
