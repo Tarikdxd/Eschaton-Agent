@@ -1,27 +1,12 @@
 {
-  "name": "@tarikdxd/eschaton-code",
+  "name": "eschaton-code",
   "version": "1.0.1",
   "description": "Production-grade multi-agent orchestration framework & autonomous terminal coding agent CLI.",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "bin/eschaton.js",
   "bin": {
     "eschaton": "./bin/eschaton.js",
     "eschaton-code": "./bin/eschaton.js"
-  },
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "tsc --noEmit",
-    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "ai",
@@ -32,10 +17,7 @@
     "orchestration",
     "llm",
     "claude",
-    "openai",
-    "mcp",
-    "tool-use",
-    "agent-framework"
+    "openai"
   ],
   "author": "Tarık Tozlu <kanserinc@protonmail.com>",
   "license": "MIT",
@@ -43,21 +25,8 @@
     "type": "git",
     "url": "git+https://github.com/Tarikdxd/Eschaton-Code.git"
   },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
-  },
   "homepage": "https://github.com/Tarikdxd/Eschaton-Code#readme",
   "engines": {
     "node": ">=18.0.0"
-  },
-  "dependencies": {
-    "@anthropic-ai/sdk": "^0.52.0",
-    "openai": "^4.73.0",
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.0.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
   }
 }
