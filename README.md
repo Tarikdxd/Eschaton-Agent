@@ -4,7 +4,6 @@
 
 **Production-Grade Multi-Agent Orchestration Framework & Autonomous Terminal Coding Agent**
 
-[![npm version](https://img.shields.io/badge/npm-v1.0.1-cb3837?style=flat-square&logo=npm)](https://github.com/Tarikdxd/Eschaton-Code/packages)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -18,16 +17,10 @@
 
 ## 🚀 Quick Terminal Launch (CLI Agent)
 
-You don't need complex configurations to start. Run **Eschaton Code** instantly just like Claude Code:
+You don't need any npm tokens or complex setups to run **Eschaton Code**. Install globally directly from GitHub:
 
-### Option 1: Zero-Install Instant Run (via `npx`)
 ```bash
-npx @tarikdxd/eschaton-code
-```
-
-### Option 2: Global Installation (Recommended)
-```bash
-npm install -g @tarikdxd/eschaton-code
+npm install -g https://github.com/Tarikdxd/Eschaton-Code
 ```
 
 Once installed, simply launch your autonomous terminal agent anywhere by typing:
@@ -51,6 +44,8 @@ eschaton> /team Build an authenticated REST API with SQLite and JWT
 [✓] Task Completed Successfully!
 ```
 
+*(Alternatively, you can clone and run it directly with `git clone https://github.com/Tarikdxd/Eschaton-Code.git && cd Eschaton-Code && npm start`)*
+
 ---
 
 ## 🛠️ CLI Interactive Command Matrix
@@ -70,7 +65,7 @@ eschaton> /team Build an authenticated REST API with SQLite and JWT
 If you're building your own autonomous AI agent systems in Node.js / TypeScript:
 
 ```bash
-npm install @tarikdxd/eschaton-code
+npm install https://github.com/Tarikdxd/Eschaton-Code
 ```
 
 ### 1. Single Agent Workflow
