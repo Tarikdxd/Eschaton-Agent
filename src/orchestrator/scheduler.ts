@@ -1,5 +1,5 @@
 /**
- * @fileoverview Task scheduling strategies for the open-multi-agent orchestrator.
+ * @fileoverview Task scheduling strategies for the eschaton-code orchestrator.
  *
  * The {@link Scheduler} class encapsulates four distinct strategies for
  * mapping a set of pending {@link Task}s onto a pool of available agents:

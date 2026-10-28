@@ -1,5 +1,5 @@
 /**
- * @fileoverview Core conversation loop engine for open-multi-agent.
+ * @fileoverview Core conversation loop engine for eschaton-code.
  *
  * {@link AgentRunner} is the heart of the framework. It handles:
  *  - Sending messages to the LLM adapter

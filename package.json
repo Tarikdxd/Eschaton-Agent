@@ -1,6 +1,6 @@
 {
-  "name": "@jackchen_me/open-multi-agent",
-  "version": "0.1.0",
+  "name": "eschaton-code",
+  "version": "1.0.0",
   "description": "Production-grade multi-agent orchestration framework. Model-agnostic, supports team collaboration, task scheduling, and inter-agent communication.",
   "type": "module",
   "main": "dist/index.js",
@@ -31,8 +31,13 @@
     "tool-use",
     "agent-framework"
   ],
-  "author": "",
+  "author": "Tarık Tozlu <kanserinc@protonmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tarikdxd/eschaton-code.git"
+  },
+  "homepage": "https://github.com/Tarikdxd/eschaton-code#readme",
   "engines": {
     "node": ">=18.0.0"
   },
@@ -42,8 +47,8 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^2.1.0"
   }
 }

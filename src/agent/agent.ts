@@ -1,5 +1,5 @@
 /**
- * @fileoverview High-level Agent class for open-multi-agent.
+ * @fileoverview High-level Agent class for eschaton-code.
  *
  * {@link Agent} is the primary interface most consumers interact with.
  * It wraps {@link AgentRunner} with:

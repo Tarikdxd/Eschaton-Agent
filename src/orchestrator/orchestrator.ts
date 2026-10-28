@@ -1,7 +1,7 @@
 /**
  * @fileoverview OpenMultiAgent — the top-level multi-agent orchestration class.
  *
- * {@link OpenMultiAgent} is the primary public API of the open-multi-agent framework.
+ * {@link OpenMultiAgent} is the primary public API of the eschaton-code framework.
  * It ties together every subsystem:
  *
  *  - {@link Team}       — Agent roster, shared memory, inter-agent messaging
@@ -334,7 +334,7 @@ async function buildTaskPrompt(task: Task, team: Team): Promise<string> {
 // ---------------------------------------------------------------------------
 
 /**
- * Top-level orchestrator for the open-multi-agent framework.
+ * Top-level orchestrator for the eschaton-code framework.
  *
  * Manages teams, coordinates task execution, and surfaces progress events.
  * Most users will interact with this class exclusively.

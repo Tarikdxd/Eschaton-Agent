@@ -1,5 +1,5 @@
 /**
- * Tool definition framework for open-multi-agent.
+ * Tool definition framework for eschaton-code.
  *
  * Provides the core primitives for declaring, registering, and converting
  * tools to the JSON Schema format that LLM APIs expect.

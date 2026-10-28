@@ -1,10 +1,10 @@
 /**
- * @fileoverview open-multi-agent — public API surface.
+ * @fileoverview eschaton-code — public API surface.
  *
- * Import from `'open-multi-agent'` to access everything you need:
+ * Import from `'eschaton-code'` to access everything you need:
  *
  * ```ts
- * import { OpenMultiAgent, Agent, Team, defineTool } from 'open-multi-agent'
+ * import { OpenMultiAgent, Agent, Team, defineTool } from 'eschaton-code'
  * ```
  *
  * ## Quickstart

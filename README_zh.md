@@ -2,8 +2,8 @@
 
 构建能协同工作的 AI 智能体团队。一个智能体负责规划，一个负责实现，一个负责审查——框架自动处理任务调度、依赖关系和智能体间通信。
 
-[![GitHub stars](https://img.shields.io/github/stars/JackChen-me/open-multi-agent)](https://github.com/JackChen-me/open-multi-agent/stargazers)
-[![license](https://img.shields.io/github/license/JackChen-me/open-multi-agent)](./LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Tarikdxd/eschaton-code)](https://github.com/Tarikdxd/eschaton-code/stargazers)
+[![license](https://img.shields.io/github/license/Tarikdxd/eschaton-code)](./LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue)](https://www.typescriptlang.org/)
 
 [English](./README.md) | **中文**
@@ -18,13 +18,13 @@
 ## 快速开始
 
 ```bash
-npm install @jackchen_me/open-multi-agent
+npm install eschaton-code
 ```
 
 在环境变量中设置 `ANTHROPIC_API_KEY`（以及可选的 `OPENAI_API_KEY`）。
 
 ```typescript
-import { OpenMultiAgent } from '@jackchen_me/open-multi-agent'
+import { OpenMultiAgent } from 'eschaton-code'
 
 const orchestrator = new OpenMultiAgent({ defaultModel: 'claude-sonnet-4-6' })
 
@@ -46,8 +46,8 @@ console.log(result.output)
 这才是有意思的地方。三个智能体，一个目标：
 
 ```typescript
-import { OpenMultiAgent } from '@jackchen_me/open-multi-agent'
-import type { AgentConfig } from '@jackchen_me/open-multi-agent'
+import { OpenMultiAgent } from 'eschaton-code'
+import type { AgentConfig } from 'eschaton-code'
 
 const architect: AgentConfig = {
   name: 'architect',
@@ -128,7 +128,7 @@ const result = await orchestrator.runTasks(team, [
 
 ```typescript
 import { z } from 'zod'
-import { defineTool, Agent, ToolRegistry, ToolExecutor, registerBuiltInTools } from '@jackchen_me/open-multi-agent'
+import { defineTool, Agent, ToolRegistry, ToolExecutor, registerBuiltInTools } from 'eschaton-code'
 
 const searchTool = defineTool({
   name: 'web_search',
@@ -194,7 +194,7 @@ const result = await orchestrator.runTeam(team, 'Build a CLI tool that converts 
 <summary><b>流式输出</b></summary>
 
 ```typescript
-import { Agent, ToolRegistry, ToolExecutor, registerBuiltInTools } from '@jackchen_me/open-multi-agent'
+import { Agent, ToolRegistry, ToolExecutor, registerBuiltInTools } from 'eschaton-code'
 
 const registry = new ToolRegistry()
 registerBuiltInTools(registry)
@@ -275,7 +275,7 @@ for await (const event of agent.stream('Explain monads in two sentences.')) {
 
 ## Star 趋势
 
-[![Star History Chart](https://api.star-history.com/svg?repos=JackChen-me/open-multi-agent&type=Date)](https://star-history.com/#JackChen-me/open-multi-agent&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=Tarikdxd/eschaton-code&type=Date)](https://star-history.com/#Tarikdxd/eschaton-code&Date)
 
 ## 许可证
 
