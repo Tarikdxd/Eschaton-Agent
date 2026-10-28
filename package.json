@@ -1,5 +1,5 @@
 {
-  "name": "eschaton-code",
+  "name": "@tarikdxd/eschaton-code",
   "version": "1.0.0",
   "description": "Production-grade multi-agent orchestration framework. Model-agnostic, supports team collaboration, task scheduling, and inter-agent communication.",
   "type": "module",
@@ -35,9 +35,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Tarikdxd/eschaton-code.git"
+    "url": "git+https://github.com/Tarikdxd/Eschaton-Code.git"
   },
-  "homepage": "https://github.com/Tarikdxd/eschaton-code#readme",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "homepage": "https://github.com/Tarikdxd/Eschaton-Code#readme",
   "engines": {
     "node": ">=18.0.0"
   },
