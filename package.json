@@ -1,10 +1,14 @@
 {
   "name": "@tarikdxd/eschaton-code",
-  "version": "1.0.0",
-  "description": "Production-grade multi-agent orchestration framework. Model-agnostic, supports team collaboration, task scheduling, and inter-agent communication.",
+  "version": "1.0.1",
+  "description": "Production-grade multi-agent orchestration framework & autonomous terminal coding agent CLI.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "eschaton": "./bin/eschaton.js",
+    "eschaton-code": "./bin/eschaton.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -22,6 +26,8 @@
   "keywords": [
     "ai",
     "agent",
+    "cli",
+    "coding-agent",
     "multi-agent",
     "orchestration",
     "llm",
