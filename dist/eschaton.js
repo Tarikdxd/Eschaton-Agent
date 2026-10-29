@@ -695,7 +695,7 @@ function firstLine(text) {
 }
 
 // src/cli.ts
-var VERSION = "2.1.0";
+var VERSION = "2.1.1";
 function setupText() {
   return `
 Eschaton Code needs a model. Pick one:
