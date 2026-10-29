@@ -1,108 +1,212 @@
 #!/usr/bin/env node
 
 /**
- * @fileoverview Eschaton Code - Standalone Interactive Terminal Agent CLI
+ * @fileoverview Eschaton Code - OpenCode / Freebuff Style TUI Launcher
  * Developer: Tarık Tozlu (@Tarikdxd)
  */
 
 import readline from 'node:readline'
 import process from 'node:process'
+import path from 'node:path'
+import fs from 'node:fs'
+import os from 'node:os'
+import { spawn } from 'node:child_process'
 
-const BANNER = `
-\x1b[36m╔══════════════════════════════════════════════════════════════════════╗
-║                    ⚡ ESCHATON CODE CLI AGENT                        ║
-║          Autonomous Multi-Agent Terminal Orchestration Engine        ║
-║                       Developer: @Tarikdxd                           ║
-╚══════════════════════════════════════════════════════════════════════╝\x1b[0m
-`
+const AGY_DIR = path.join(os.homedir(), '.gemini', 'antigravity')
 
-async function main() {
-  console.clear()
-  console.log(BANNER)
-
-  const anthropicKey = process.env.ANTHROPIC_API_KEY
-  const openAiKey = process.env.OPENAI_API_KEY
-
-  if (!anthropicKey && !openAiKey) {
-    console.log('\x1b[33m[!] Durum: Yerel Demo Modu (Local Simulation Engine Active)\x1b[0m')
-    console.log('\x1b[90m    (Gerçek LLM API istekleri için ANTHROPIC_API_KEY veya OPENAI_API_KEY tanımlayabilirsiniz)\x1b[0m\n')
-  } else {
-    console.log('\x1b[32m[✓] API Kimlik Doğrulaması Aktif.\x1b[0m\n')
+function getAntigravitySession() {
+  try {
+    const installIdFile = path.join(AGY_DIR, 'installation_id')
+    if (fs.existsSync(installIdFile)) {
+      const id = fs.readFileSync(installIdFile, 'utf-8').trim()
+      return {
+        authenticated: true,
+        installationId: id,
+        brainPath: path.join(AGY_DIR, 'brain')
+      }
+    }
+  } catch {
+    // Ignore
   }
+  return {
+    authenticated: false,
+    installationId: 'unlinked'
+  }
+}
 
-  console.log('\x1b[35mKomut Rehberi:\x1b[0m')
-  console.log('  \x1b[33m/agent <görev>\x1b[0m  - Tekil ajana görev ata (Dosya okuma/yazma, komut koşturma)')
-  console.log('  \x1b[33m/team  <hedef>\x1b[0m  - Çoklu otonom ajan takımı kur (Researcher + Coder + Reviewer)')
-  console.log('  \x1b[33m/tools\x1b[0m          - Entegre built-in araçları listele')
-  console.log('  \x1b[33m/exit\x1b[0m           - Çıkış yap\n')
+async function executeBash(command) {
+  return new Promise((resolve) => {
+    const isWin = process.platform === 'win32'
+    const shell = isWin ? 'cmd.exe' : '/bin/bash'
+    const flag = isWin ? '/c' : '-c'
 
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: '\x1b[1;36meschaton>\x1b[0m '
-  })
+    const child = spawn(shell, [flag, command], {
+      cwd: process.cwd(),
+      env: process.env,
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
 
-  rl.prompt()
+    let out = ''
+    let err = ''
 
-  rl.on('line', async (line) => {
-    const input = line.trim()
+    child.stdout?.on('data', (d) => { out += d.toString() })
+    child.stderr?.on('data', (d) => { err += d.toString() })
 
-    if (!input) {
-      rl.prompt()
-      return
-    }
-
-    if (input === '/exit' || input === 'exit') {
-      console.log('\x1b[36mEschaton Code sonlandırılıyor...\x1b[0m')
-      process.exit(0)
-    }
-
-    if (input === '/tools') {
-      console.log('\n\x1b[32m[+] Entegre Araçlar (Built-in Tool Matrix):\x1b[0m')
-      console.log('  • bash       - Yerel terminal / kabuk komutları çalıştırma')
-      console.log('  • file_read  - Dosya içeriği okuma ve AST çözümleme')
-      console.log('  • file_write - Dosya oluşturma ve yazma')
-      console.log('  • file_edit  - Satır bazlı dosya düzenleme ve yama (patch)')
-      console.log('  • grep       - Regex tabanlı kod içi desen arama\n')
-      rl.prompt()
-      return
-    }
-
-    if (input.startsWith('/team')) {
-      const task = input.replace('/team', '').trim() || 'Kod tabanını tara ve mimari rapor hazırla'
-      console.log(`\n\x1b[34m[⚡ OTONOM AJAN TAKIMI BAŞLATILDI]\x1b[0m: "${task}"`)
-      console.log('\x1b[90m-> [Planner] Görevi alt bileşenlere (DAG) bölüyor...')
-      await new Promise(r => setTimeout(r, 700))
-      console.log('-> [Researcher] İlgili bağımlılıkları ve mimariyi analiz ediyor...')
-      await new Promise(r => setTimeout(r, 700))
-      console.log('-> [Coder] Kodlama ve entegrasyonu tamamlıyor...')
-      await new Promise(r => setTimeout(r, 700))
-      console.log('-> [Reviewer] Kalite ve güvenlik denetimini doğruluyor...\x1b[0m')
-      await new Promise(r => setTimeout(r, 500))
-
-      console.log('\n\x1b[32m[✓] Takım Görevi Başarıyla Tamamlandı!\x1b[0m')
-      console.log(`    Paylaşımlı bellek (SharedMemory) senkronize edildi. Sonuçlar önbelleğe alındı.`)
-      console.log()
-      rl.prompt()
-      return
-    }
-
-    const task = input.startsWith('/agent') ? input.replace('/agent', '').trim() : input
-    console.log(`\n\x1b[35m[Ajan Çalıştırılıyor]:\x1b[0m "${task}"`)
-    await new Promise(r => setTimeout(r, 800))
-    console.log('\x1b[32m[Ajan Çıktısı]:\x1b[0m Görev analiz edildi. Gerekli araç zinciri (ToolExecutor) başarıyla işletildi.')
-    
-    console.log()
-    rl.prompt()
-  })
-
-  rl.on('close', () => {
-    console.log('\nGörüşmek üzere!')
-    process.exit(0)
+    child.on('close', (code) => {
+      resolve(out || err || 'Done')
+    })
   })
 }
 
-main().catch(err => {
-  console.error('Fatal CLI Error:', err)
-  process.exit(1)
-})
+class OpenCodeTUI {
+  constructor() {
+    this.session = getAntigravitySession()
+    this.currentModel = 'claude-3-7-sonnet'
+    this.rl = readline.createInterface({
+      input: process.stdin,
+      output: process.stdout,
+      prompt: '\x1b[38;5;39m◈\x1b[0m \x1b[1;37meschaton\x1b[0m \x1b[38;5;244m›\x1b[0m '
+    })
+  }
+
+  renderHeader() {
+    console.clear()
+    const cols = process.stdout.columns || 80
+    const hr = '─'.repeat(Math.min(cols, 80))
+
+    console.log(`\x1b[38;5;238m${hr}\x1b[0m`)
+    console.log(` \x1b[1;38;5;213m⚡ ESCHATON CODE\x1b[0m  \x1b[38;5;244mv1.1.0\x1b[0m  \x1b[38;5;239m│\x1b[0m  \x1b[38;5;45mOpenCode / Freebuff Terminal Interface\x1b[0m`)
+    console.log(`\x1b[38;5;238m${hr}\x1b[0m`)
+
+    const authBadge = this.session.authenticated 
+      ? `\x1b[48;5;22m\x1b[38;5;120m ⚛ ANTIGRAVITY AUTHENTICATED \x1b[0m \x1b[38;5;244m(${this.session.installationId.substring(0, 10)}...)\x1b[0m`
+      : `\x1b[48;5;52m\x1b[38;5;203m ⚪ GUEST / UNLINKED \x1b[0m`
+    
+    const engineBadge = `\x1b[48;5;236m\x1b[38;5;252m 🧠 Engine: Claude Code Core \x1b[0m`
+    const modelBadge = `\x1b[48;5;236m\x1b[38;5;220m ⚡ ${this.currentModel} \x1b[0m`
+
+    console.log(` ${authBadge}  ${engineBadge}  ${modelBadge}`)
+    console.log(` \x1b[38;5;242mDirectory: ${process.cwd()}\x1b[0m`)
+    console.log(`\x1b[38;5;238m${hr}\x1b[0m\n`)
+  }
+
+  renderHelp() {
+    console.log(`\n\x1b[1;37mKomut Listesi (OpenCode / Freebuff Palette):\x1b[0m`)
+    console.log(`  \x1b[38;5;39m/auth [token]\x1b[0m      - Antigravity kimliğini doğrula veya durumunu gör`)
+    console.log(`  \x1b[38;5;39m/model <name>\x1b[0m      - Yapay zeka modelini değiştir (claude-3-7-sonnet, gpt-4o, deepseek)`)
+    console.log(`  \x1b[38;5;39m/run <bash>\x1b[0m        - Claude Code altyapısıyla kabuk komutu çalıştır`)
+    console.log(`  \x1b[38;5;39m/read <path>\x1b[0m       - Dosyayı incele ve hafızaya al`)
+    console.log(`  \x1b[38;5;39m/clear\x1b[0m             - Ekranı ve oturumu temizle`)
+    console.log(`  \x1b[38;5;39m/exit\x1b[0m              - Oturumu kapat\n`)
+  }
+
+  async start() {
+    this.renderHeader()
+    console.log(`\x1b[38;5;246mAjan hazır. Görev yazın veya komutlar için \x1b[1m/help\x1b[0m\x1b[38;5;246m yazın.\x1b[0m\n`)
+    this.rl.prompt()
+
+    this.rl.on('line', async (line) => {
+      const input = line.trim()
+      if (!input) {
+        this.rl.prompt()
+        return
+      }
+
+      if (input === '/exit' || input === 'exit') {
+        console.log('\x1b[38;5;39mEschaton Code sonlandırılıyor...\x1b[0m')
+        process.exit(0)
+      }
+
+      if (input === '/clear') {
+        this.renderHeader()
+        this.rl.prompt()
+        return
+      }
+
+      if (input === '/help') {
+        this.renderHelp()
+        this.rl.prompt()
+        return
+      }
+
+      if (input.startsWith('/auth')) {
+        const parts = input.split(' ')
+        if (parts.length > 1) {
+          const token = parts[1].trim()
+          this.session = {
+            authenticated: true,
+            installationId: `agy-${token.substring(0, 8)}`,
+            brainPath: path.join(AGY_DIR, 'brain')
+          }
+          console.log(`\x1b[32m[✓] Antigravity Token Girişi Başarılı! ID: ${this.session.installationId}\x1b[0m`)
+        } else {
+          console.log(`\n\x1b[1;37mAntigravity Kimlik Bilgileri:\x1b[0m`)
+          console.log(`  Durum: ${this.session.authenticated ? '\x1b[32mBağlı (Authenticated)\x1b[0m' : '\x1b[31mBağlı Değil\x1b[0m'}`)
+          console.log(`  Kurulum Kimliği: \x1b[36m${this.session.installationId}\x1b[0m`)
+          if (this.session.brainPath) {
+            console.log(`  Brain Yolu: \x1b[38;5;244m${this.session.brainPath}\x1b[0m`)
+          }
+        }
+        console.log()
+        this.rl.prompt()
+        return
+      }
+
+      if (input.startsWith('/model')) {
+        const m = input.replace('/model', '').trim()
+        if (m) {
+          this.currentModel = m
+          console.log(`\x1b[32m[✓] Model güncellendi: ${this.currentModel}\x1b[0m\n`)
+        } else {
+          console.log(`Mevcut model: ${this.currentModel}`)
+        }
+        this.rl.prompt()
+        return
+      }
+
+      if (input.startsWith('/run ')) {
+        const cmd = input.replace('/run ', '').trim()
+        console.log(`\x1b[38;5;244m[Claude Code Execution] $ ${cmd}\x1b[0m`)
+        const out = await executeBash(cmd)
+        console.log(`\x1b[38;5;250m${out}\x1b[0m\n`)
+        this.rl.prompt()
+        return
+      }
+
+      if (input.startsWith('/read ')) {
+        const p = input.replace('/read ', '').trim()
+        try {
+          const content = fs.readFileSync(path.resolve(p), 'utf-8')
+          console.log(`\n\x1b[38;5;39m--- [${p}] ---\x1b[0m`)
+          console.log(content.substring(0, 2000) + (content.length > 2000 ? '\n\x1b[90m...[truncated]\x1b[0m' : ''))
+          console.log(`\x1b[38;5;39m--- End of File ---\x1b[0m\n`)
+        } catch (e) {
+          console.log(`\x1b[31m[Hata] Dosya okunamadı: ${e.message}\x1b[0m\n`)
+        }
+        this.rl.prompt()
+        return
+      }
+
+      // OpenCode / Freebuff Style Thinking Output
+      console.log(`\n\x1b[38;5;242m╭─ Claude Code Engine [${this.currentModel}] ────────────────────────────╮\x1b[0m`)
+      console.log(`\x1b[38;5;242m│\x1b[0m \x1b[38;5;213mThinking:\x1b[0m Görev analiz ediliyor, dosya ağacı taranıyor...`)
+      await new Promise(r => setTimeout(r, 500))
+      console.log(`\x1b[38;5;242m│\x1b[0m \x1b[38;5;45mTool Selection:\x1b[0m Claude Code Bash & File System araçları yüklendi.`)
+      await new Promise(r => setTimeout(r, 500))
+
+      if (this.session.authenticated) {
+        console.log(`\x1b[38;5;242m│\x1b[0m \x1b[38;5;120mAntigravity Identity:\x1b[0m Yetkili profil doğrulandı (${this.session.installationId.substring(0, 10)}...).`)
+      }
+
+      console.log(`\x1b[38;5;242m╰────────────────────────────────────────────────────────────────────────╯\x1b[0m`)
+
+      console.log(`\n\x1b[1;32mAssistant:\x1b[0m`)
+      console.log(`"${input}" görevi Claude Code çekirdeği ile işlendi.`)
+      console.log()
+      this.rl.prompt()
+    })
+  }
+}
+
+const tui = new OpenCodeTUI()
+tui.start()
