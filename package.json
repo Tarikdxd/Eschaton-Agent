@@ -1,12 +1,10 @@
 {
   "name": "@tarikdxd/eschaton-code",
   "version": "1.3.0",
-  "description": "Eschaton Code - Pixel-Perfect OpenCode Terminal Coding Agent with Multi-Provider DeepSeek Pool, Auto-Failover, and Unlimited Quota Session Trick",
+  "description": "Terminal coding agent for DeepSeek models, built on Codebuff and Freebuff",
   "type": "module",
   "bin": {
-    "eschaton": "./bin/eschaton.js",
-    "freebuff": "./bin/freebuff.js",
-    "opencode": "./bin/eschaton.js"
+    "eschaton": "./bin/eschaton.js"
   },
   "files": [
     "bin",
@@ -44,12 +42,11 @@
   "keywords": [
     "eschaton",
     "freebuff",
-    "opencode",
-    "claude-code",
-    "antigravity",
+    "codebuff",
+    "deepseek",
     "tui",
     "terminal-agent",
-    "coding-assistant"
+    "coding-agent"
   ],
   "author": "Tarık Tozlu (@Tarikdxd)",
   "license": "Apache-2.0",
