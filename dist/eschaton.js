@@ -696,24 +696,29 @@ function firstLine(text) {
 
 // src/cli.ts
 var VERSION = "2.1.0";
-var SETUP = `
+function setupText() {
+  return `
 Eschaton Code needs a model. Pick one:
 
-  Local, free and private
-    Ollama      ollama pull deepseek-r1:7b      https://ollama.com
-    LM Studio   load a DeepSeek model and start the server   https://lmstudio.ai
+  1. Local, free and private
+     Ollama       ollama pull deepseek-r1:7b        https://ollama.com
+     LM Studio    load a model and start the local server   https://lmstudio.ai
 
-  Hosted, with your own key
-    export DEEPSEEK_API_KEY=...
-    export OPENROUTER_API_KEY=...
-    export GROQ_API_KEY=...
-    export OPENAI_BASE_URL=... OPENAI_API_KEY=...   # any OpenAI-compatible endpoint
+  2. Hosted, with your own key (recommended)
+     eschaton login openrouter sk-or-...
+     eschaton login deepseek sk-...
+     eschaton login groq gsk_...
 
-  Save a key once instead of exporting it:
-    eschaton login openrouter sk-or-...
+  3. Environment variable, if you prefer not to save it
+     macOS / Linux     export OPENROUTER_API_KEY=...
+     Windows (cmd)     set OPENROUTER_API_KEY=...
+     Windows (PS)      $env:OPENROUTER_API_KEY="..."
 
-The settings file is ${CONFIG_FILE}
+  Any OpenAI-compatible endpoint works too: OPENAI_BASE_URL and OPENAI_API_KEY.
+
+  Keys are stored in ${CONFIG_FILE}
 `;
+}
 function printHelp() {
   process3.stdout.write(
     `
@@ -762,7 +767,7 @@ async function main() {
   }
   if (argv[0] === "login") return runLogin(argv.slice(1));
   if (argv[0] === "setup") {
-    process3.stdout.write(SETUP);
+    process3.stdout.write(setupText());
     return 0;
   }
   const modelFlag = argv.indexOf("-m") >= 0 ? argv.indexOf("-m") : argv.indexOf("--model");
@@ -771,7 +776,7 @@ async function main() {
   if (modelOverride) pool.setModel(modelOverride);
   await pool.detectLocal();
   if (!pool.list().length) {
-    process3.stdout.write(SETUP);
+    process3.stdout.write(setupText());
     return 1;
   }
   const ui = new TerminalUI(pool, { version: VERSION, cwd: process3.cwd() });

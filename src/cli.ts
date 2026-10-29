@@ -5,24 +5,29 @@ import { TerminalUI } from './ui/tui.js'
 
 export const VERSION = '2.1.0'
 
-const SETUP = `
+function setupText(): string {
+  return `
 Eschaton Code needs a model. Pick one:
 
-  Local, free and private
-    Ollama      ollama pull deepseek-r1:7b      https://ollama.com
-    LM Studio   load a DeepSeek model and start the server   https://lmstudio.ai
+  1. Local, free and private
+     Ollama       ollama pull deepseek-r1:7b        https://ollama.com
+     LM Studio    load a model and start the local server   https://lmstudio.ai
 
-  Hosted, with your own key
-    export DEEPSEEK_API_KEY=...
-    export OPENROUTER_API_KEY=...
-    export GROQ_API_KEY=...
-    export OPENAI_BASE_URL=... OPENAI_API_KEY=...   # any OpenAI-compatible endpoint
+  2. Hosted, with your own key (recommended)
+     eschaton login openrouter sk-or-...
+     eschaton login deepseek sk-...
+     eschaton login groq gsk_...
 
-  Save a key once instead of exporting it:
-    eschaton login openrouter sk-or-...
+  3. Environment variable, if you prefer not to save it
+     macOS / Linux     export OPENROUTER_API_KEY=...
+     Windows (cmd)     set OPENROUTER_API_KEY=...
+     Windows (PS)      $env:OPENROUTER_API_KEY="..."
 
-The settings file is ${CONFIG_FILE}
+  Any OpenAI-compatible endpoint works too: OPENAI_BASE_URL and OPENAI_API_KEY.
+
+  Keys are stored in ${CONFIG_FILE}
 `
+}
 
 function printHelp(): void {
   process.stdout.write(
@@ -77,7 +82,7 @@ async function main(): Promise<number> {
 
   if (argv[0] === 'login') return runLogin(argv.slice(1))
   if (argv[0] === 'setup') {
-    process.stdout.write(SETUP)
+    process.stdout.write(setupText())
     return 0
   }
 
@@ -89,7 +94,7 @@ async function main(): Promise<number> {
   await pool.detectLocal()
 
   if (!pool.list().length) {
-    process.stdout.write(SETUP)
+    process.stdout.write(setupText())
     return 1
   }
 
