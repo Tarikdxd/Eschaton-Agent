@@ -1,9 +1,9 @@
-import process from 'node:process'
+﻿import process from 'node:process'
 import { ProviderPool, providersFromSettings } from './llm/providers.js'
 import { loadSettings, saveSettings, CONFIG_FILE } from './config.js'
 import { TerminalUI } from './ui/tui.js'
 
-export const VERSION = '2.0.0'
+export const VERSION = '2.0.1'
 
 const SETUP = `
 Eschaton Code needs a model. Pick one:
