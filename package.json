@@ -27,7 +27,7 @@
     "build:sdk": "cd sdk && bun run build",
     "build:freebuff": "bun freebuff/cli/build.ts 0.0.0-dev"
   },
-  "workspaces": [
+  "allWorkspaces": [
     "agents",
     "cli",
     "common",
