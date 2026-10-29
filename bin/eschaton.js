@@ -1,212 +1,194 @@
 #!/usr/bin/env node
 
 /**
- * @fileoverview Eschaton Code - OpenCode / Freebuff Style TUI Launcher
+ * ⚡ ESCHATON CODE CLI
+ * OpenCode / Freebuff Terminal User Interface (TUI)
+ * Integrated with Claude Code Architecture & Antigravity Ecosystem
  * Developer: Tarık Tozlu (@Tarikdxd)
  */
 
-import readline from 'node:readline'
-import process from 'node:process'
-import path from 'node:path'
 import fs from 'node:fs'
+import path from 'node:path'
 import os from 'node:os'
-import { spawn } from 'node:child_process'
+import process from 'node:process'
+import { spawn, execSync } from 'node:child_process'
+import https from 'node:https'
 
+const VERSION = '1.2.0'
+const FREEBUFF_VERSION = '0.2.34'
+
+// 1. Antigravity Environment Detection
 const AGY_DIR = path.join(os.homedir(), '.gemini', 'antigravity')
 
-function getAntigravitySession() {
+function getAntigravityStatus() {
   try {
     const installIdFile = path.join(AGY_DIR, 'installation_id')
     if (fs.existsSync(installIdFile)) {
       const id = fs.readFileSync(installIdFile, 'utf-8').trim()
+      const brainDir = path.join(AGY_DIR, 'brain')
+      const hasBrain = fs.existsSync(brainDir)
       return {
-        authenticated: true,
+        connected: true,
         installationId: id,
-        brainPath: path.join(AGY_DIR, 'brain')
+        brainPath: brainDir,
+        brainExists: hasBrain
       }
     }
-  } catch {
-    // Ignore
-  }
+  } catch {}
   return {
-    authenticated: false,
-    installationId: 'unlinked'
+    connected: false,
+    installationId: null,
+    brainPath: null
   }
 }
 
-async function executeBash(command) {
-  return new Promise((resolve) => {
-    const isWin = process.platform === 'win32'
-    const shell = isWin ? 'cmd.exe' : '/bin/bash'
-    const flag = isWin ? '/c' : '-c'
+// 2. Binary resolution
+function getPlatformKey() {
+  const plat = process.platform
+  const arch = process.arch
+  if (plat === 'win32') return arch === 'arm64' ? 'win32-arm64' : 'win32-x64'
+  if (plat === 'darwin') return arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64'
+  if (plat === 'linux') return arch === 'arm64' ? 'linux-arm64' : 'linux-x64'
+  return `${plat}-${arch}`
+}
 
-    const child = spawn(shell, [flag, command], {
-      cwd: process.cwd(),
-      env: process.env,
-      stdio: ['ignore', 'pipe', 'pipe']
-    })
+function findBinary() {
+  const binaryName = process.platform === 'win32' ? 'freebuff.exe' : 'freebuff'
+  const candidateDirs = [
+    path.join(os.homedir(), '.config', 'manicode'),
+    path.join(os.homedir(), '.eschaton', 'bin'),
+    path.join(os.homedir(), 'AppData', 'Roaming', 'manicode'),
+    path.join(process.cwd(), 'bin')
+  ]
 
-    let out = ''
-    let err = ''
+  for (const dir of candidateDirs) {
+    const binPath = path.join(dir, binaryName)
+    if (fs.existsSync(binPath)) {
+      return binPath
+    }
+  }
+  return null
+}
 
-    child.stdout?.on('data', (d) => { out += d.toString() })
-    child.stderr?.on('data', (d) => { err += d.toString() })
+async function downloadBinary(targetDir) {
+  fs.mkdirSync(targetDir, { recursive: true })
+  const targetKey = getPlatformKey()
+  const fileName = `freebuff-${targetKey}.tar.gz`
+  const downloadUrl = `https://codebuff.com/api/releases/download/${FREEBUFF_VERSION}/${fileName}`
+  const tarPath = path.join(targetDir, fileName)
 
-    child.on('close', (code) => {
-      resolve(out || err || 'Done')
-    })
+  console.log(`\x1b[38;5;39m⚡ Downloading Eschaton / Freebuff core binary (${targetKey})...\x1b[0m`)
+  
+  // Follow redirects and stream download
+  await new Promise((resolve, reject) => {
+    function fetchWithRedirect(url) {
+      https.get(url, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return fetchWithRedirect(res.headers.location)
+        }
+        if (res.statusCode !== 200) {
+          return reject(new Error(`Download failed with status ${res.statusCode}`))
+        }
+        const fileStream = fs.createWriteStream(tarPath)
+        res.pipe(fileStream)
+        fileStream.on('finish', () => {
+          fileStream.close(resolve)
+        })
+      }).on('error', reject)
+    }
+    fetchWithRedirect(downloadUrl)
+  })
+
+  console.log(`\x1b[38;5;48m✔ Extracting binary packages...\x1b[0m`)
+  execSync(`tar -xzf "${tarPath}" -C "${targetDir}"`, { stdio: 'ignore' })
+  try { fs.unlinkSync(tarPath) } catch {}
+
+  const binName = process.platform === 'win32' ? 'freebuff.exe' : 'freebuff'
+  const finalPath = path.join(targetDir, binName)
+  if (process.platform !== 'win32' && fs.existsSync(finalPath)) {
+    fs.chmodSync(finalPath, 0o755)
+  }
+  return finalPath
+}
+
+// 3. Command Handling
+const args = process.argv.slice(2)
+const agy = getAntigravityStatus()
+
+if (args.includes('--antigravity') || args[0] === 'auth' || args[0] === 'login-antigravity') {
+  console.log(`
+\x1b[1;38;5;213m┌─────────────────────────────────────────────────────────────┐\x1b[0m
+\x1b[1;38;5;213m│\x1b[0m   \x1b[1;37m⚡ ESCHATON CODE • ANTIGRAVITY AUTHENTICATION\x1b[0m            \x1b[1;38;5;213m│\x1b[0m
+\x1b[1;38;5;213m├─────────────────────────────────────────────────────────────┤\x1b[0m
+\x1b[1;38;5;213m│\x1b[0m   Status:          ${agy.connected ? '\x1b[1;32m● CONNECTED (Active Local Session)\x1b[0m       ' : '\x1b[1;31m○ NOT CONNECTED\x1b[0m                  '}\x1b[1;38;5;213m│\x1b[0m
+\x1b[1;38;5;213m│\x1b[0m   Installation ID: \x1b[38;5;39m${(agy.installationId || 'None').padEnd(41)}\x1b[0m\x1b[1;38;5;213m│\x1b[0m
+\x1b[1;38;5;213m│\x1b[0m   Brain Directory: \x1b[38;5;244m${(agy.brainPath ? agy.brainPath.substring(0, 41) : 'None').padEnd(41)}\x1b[0m\x1b[1;38;5;213m│\x1b[0m
+\x1b[1;38;5;213m│\x1b[0m   Engine Backend:  \x1b[1;33mClaude Code ReAct + OpenCode TUI\x1b[0m         \x1b[1;38;5;213m│\x1b[0m
+\x1b[1;38;5;213m└─────────────────────────────────────────────────────────────┘\x1b[0m
+`)
+  process.exit(0)
+}
+
+if (args.includes('--version') || args.includes('-v')) {
+  console.log(`Eschaton Code v${VERSION} (Freebuff Core v${FREEBUFF_VERSION}, Antigravity Linked)`)
+  process.exit(0)
+}
+
+if (args.includes('--help') || args.includes('-h')) {
+  console.log(`
+\x1b[1;37mUsage:\x1b[0m eschaton [options] [command]
+
+Eschaton Code - OpenCode / Freebuff Terminal AI Coding Assistant
+Integrated with Claude Code Engine and Antigravity Ecosystem.
+
+\x1b[1;37mCommands:\x1b[0m
+  login                         Authenticate with your Freebuff / Codebuff account
+  auth, --antigravity           Inspect Antigravity session status & local brain sync
+
+\x1b[1;37mOptions:\x1b[0m
+  -v, --version                 Print version information
+  --continue [conversation-id]  Continue from a previous conversation
+  --cwd <directory>             Set the working directory (default: current directory)
+  --trust-agents                Load repository's .agents files and mcp.json without prompt
+  -h, --help                    Show this help message
+`)
+  process.exit(0)
+}
+
+// 4. Main TUI Launch
+async function main() {
+  let bin = findBinary()
+  if (!bin) {
+    const installDir = path.join(os.homedir(), '.config', 'manicode')
+    bin = await downloadBinary(installDir)
+  }
+
+  const env = {
+    ...process.env,
+    ESCHATON_VERSION: VERSION,
+    ANTIGRAVITY_ENABLED: agy.connected ? '1' : '0',
+    ...(agy.connected ? {
+      ANTIGRAVITY_ID: agy.installationId,
+      ANTIGRAVITY_BRAIN: agy.brainPath
+    } : {})
+  }
+
+  const child = spawn(bin, args, {
+    stdio: 'inherit',
+    env
+  })
+
+  child.on('exit', (code) => {
+    process.exit(code ?? 0)
+  })
+
+  child.on('error', (err) => {
+    console.error(`\x1b[31mFailed to start Eschaton TUI: ${err.message}\x1b[0m`)
+    process.exit(1)
   })
 }
 
-class OpenCodeTUI {
-  constructor() {
-    this.session = getAntigravitySession()
-    this.currentModel = 'claude-3-7-sonnet'
-    this.rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-      prompt: '\x1b[38;5;39m◈\x1b[0m \x1b[1;37meschaton\x1b[0m \x1b[38;5;244m›\x1b[0m '
-    })
-  }
-
-  renderHeader() {
-    console.clear()
-    const cols = process.stdout.columns || 80
-    const hr = '─'.repeat(Math.min(cols, 80))
-
-    console.log(`\x1b[38;5;238m${hr}\x1b[0m`)
-    console.log(` \x1b[1;38;5;213m⚡ ESCHATON CODE\x1b[0m  \x1b[38;5;244mv1.1.0\x1b[0m  \x1b[38;5;239m│\x1b[0m  \x1b[38;5;45mOpenCode / Freebuff Terminal Interface\x1b[0m`)
-    console.log(`\x1b[38;5;238m${hr}\x1b[0m`)
-
-    const authBadge = this.session.authenticated 
-      ? `\x1b[48;5;22m\x1b[38;5;120m ⚛ ANTIGRAVITY AUTHENTICATED \x1b[0m \x1b[38;5;244m(${this.session.installationId.substring(0, 10)}...)\x1b[0m`
-      : `\x1b[48;5;52m\x1b[38;5;203m ⚪ GUEST / UNLINKED \x1b[0m`
-    
-    const engineBadge = `\x1b[48;5;236m\x1b[38;5;252m 🧠 Engine: Claude Code Core \x1b[0m`
-    const modelBadge = `\x1b[48;5;236m\x1b[38;5;220m ⚡ ${this.currentModel} \x1b[0m`
-
-    console.log(` ${authBadge}  ${engineBadge}  ${modelBadge}`)
-    console.log(` \x1b[38;5;242mDirectory: ${process.cwd()}\x1b[0m`)
-    console.log(`\x1b[38;5;238m${hr}\x1b[0m\n`)
-  }
-
-  renderHelp() {
-    console.log(`\n\x1b[1;37mKomut Listesi (OpenCode / Freebuff Palette):\x1b[0m`)
-    console.log(`  \x1b[38;5;39m/auth [token]\x1b[0m      - Antigravity kimliğini doğrula veya durumunu gör`)
-    console.log(`  \x1b[38;5;39m/model <name>\x1b[0m      - Yapay zeka modelini değiştir (claude-3-7-sonnet, gpt-4o, deepseek)`)
-    console.log(`  \x1b[38;5;39m/run <bash>\x1b[0m        - Claude Code altyapısıyla kabuk komutu çalıştır`)
-    console.log(`  \x1b[38;5;39m/read <path>\x1b[0m       - Dosyayı incele ve hafızaya al`)
-    console.log(`  \x1b[38;5;39m/clear\x1b[0m             - Ekranı ve oturumu temizle`)
-    console.log(`  \x1b[38;5;39m/exit\x1b[0m              - Oturumu kapat\n`)
-  }
-
-  async start() {
-    this.renderHeader()
-    console.log(`\x1b[38;5;246mAjan hazır. Görev yazın veya komutlar için \x1b[1m/help\x1b[0m\x1b[38;5;246m yazın.\x1b[0m\n`)
-    this.rl.prompt()
-
-    this.rl.on('line', async (line) => {
-      const input = line.trim()
-      if (!input) {
-        this.rl.prompt()
-        return
-      }
-
-      if (input === '/exit' || input === 'exit') {
-        console.log('\x1b[38;5;39mEschaton Code sonlandırılıyor...\x1b[0m')
-        process.exit(0)
-      }
-
-      if (input === '/clear') {
-        this.renderHeader()
-        this.rl.prompt()
-        return
-      }
-
-      if (input === '/help') {
-        this.renderHelp()
-        this.rl.prompt()
-        return
-      }
-
-      if (input.startsWith('/auth')) {
-        const parts = input.split(' ')
-        if (parts.length > 1) {
-          const token = parts[1].trim()
-          this.session = {
-            authenticated: true,
-            installationId: `agy-${token.substring(0, 8)}`,
-            brainPath: path.join(AGY_DIR, 'brain')
-          }
-          console.log(`\x1b[32m[✓] Antigravity Token Girişi Başarılı! ID: ${this.session.installationId}\x1b[0m`)
-        } else {
-          console.log(`\n\x1b[1;37mAntigravity Kimlik Bilgileri:\x1b[0m`)
-          console.log(`  Durum: ${this.session.authenticated ? '\x1b[32mBağlı (Authenticated)\x1b[0m' : '\x1b[31mBağlı Değil\x1b[0m'}`)
-          console.log(`  Kurulum Kimliği: \x1b[36m${this.session.installationId}\x1b[0m`)
-          if (this.session.brainPath) {
-            console.log(`  Brain Yolu: \x1b[38;5;244m${this.session.brainPath}\x1b[0m`)
-          }
-        }
-        console.log()
-        this.rl.prompt()
-        return
-      }
-
-      if (input.startsWith('/model')) {
-        const m = input.replace('/model', '').trim()
-        if (m) {
-          this.currentModel = m
-          console.log(`\x1b[32m[✓] Model güncellendi: ${this.currentModel}\x1b[0m\n`)
-        } else {
-          console.log(`Mevcut model: ${this.currentModel}`)
-        }
-        this.rl.prompt()
-        return
-      }
-
-      if (input.startsWith('/run ')) {
-        const cmd = input.replace('/run ', '').trim()
-        console.log(`\x1b[38;5;244m[Claude Code Execution] $ ${cmd}\x1b[0m`)
-        const out = await executeBash(cmd)
-        console.log(`\x1b[38;5;250m${out}\x1b[0m\n`)
-        this.rl.prompt()
-        return
-      }
-
-      if (input.startsWith('/read ')) {
-        const p = input.replace('/read ', '').trim()
-        try {
-          const content = fs.readFileSync(path.resolve(p), 'utf-8')
-          console.log(`\n\x1b[38;5;39m--- [${p}] ---\x1b[0m`)
-          console.log(content.substring(0, 2000) + (content.length > 2000 ? '\n\x1b[90m...[truncated]\x1b[0m' : ''))
-          console.log(`\x1b[38;5;39m--- End of File ---\x1b[0m\n`)
-        } catch (e) {
-          console.log(`\x1b[31m[Hata] Dosya okunamadı: ${e.message}\x1b[0m\n`)
-        }
-        this.rl.prompt()
-        return
-      }
-
-      // OpenCode / Freebuff Style Thinking Output
-      console.log(`\n\x1b[38;5;242m╭─ Claude Code Engine [${this.currentModel}] ────────────────────────────╮\x1b[0m`)
-      console.log(`\x1b[38;5;242m│\x1b[0m \x1b[38;5;213mThinking:\x1b[0m Görev analiz ediliyor, dosya ağacı taranıyor...`)
-      await new Promise(r => setTimeout(r, 500))
-      console.log(`\x1b[38;5;242m│\x1b[0m \x1b[38;5;45mTool Selection:\x1b[0m Claude Code Bash & File System araçları yüklendi.`)
-      await new Promise(r => setTimeout(r, 500))
-
-      if (this.session.authenticated) {
-        console.log(`\x1b[38;5;242m│\x1b[0m \x1b[38;5;120mAntigravity Identity:\x1b[0m Yetkili profil doğrulandı (${this.session.installationId.substring(0, 10)}...).`)
-      }
-
-      console.log(`\x1b[38;5;242m╰────────────────────────────────────────────────────────────────────────╯\x1b[0m`)
-
-      console.log(`\n\x1b[1;32mAssistant:\x1b[0m`)
-      console.log(`"${input}" görevi Claude Code çekirdeği ile işlendi.`)
-      console.log()
-      this.rl.prompt()
-    })
-  }
-}
-
-const tui = new OpenCodeTUI()
-tui.start()
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

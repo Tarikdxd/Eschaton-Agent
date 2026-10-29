@@ -1,32 +1,51 @@
 {
-  "name": "eschaton-code",
-  "version": "1.0.1",
-  "description": "Production-grade multi-agent orchestration framework & autonomous terminal coding agent CLI.",
+  "name": "@tarikdxd/eschaton-code",
+  "version": "1.2.0",
+  "description": "Eschaton Code - OpenCode / Freebuff Terminal AI Coding Assistant powered by Claude Code Engine and Antigravity Ecosystem",
   "type": "module",
-  "main": "bin/eschaton.js",
   "bin": {
     "eschaton": "./bin/eschaton.js",
-    "eschaton-code": "./bin/eschaton.js"
+    "freebuff": "./bin/freebuff.js",
+    "opencode": "./bin/eschaton.js"
   },
-  "keywords": [
-    "ai",
-    "agent",
+  "scripts": {
+    "start": "node ./bin/eschaton.js",
+    "dev": "bun --cwd cli dev",
+    "dev:freebuff": "FREEBUFF_MODE=true bun --cwd cli dev",
+    "build": "bun run build:freebuff",
+    "build:sdk": "cd sdk && bun run build",
+    "build:freebuff": "bun freebuff/cli/build.ts 0.0.0-dev"
+  },
+  "workspaces": [
+    "agents",
     "cli",
-    "coding-agent",
-    "multi-agent",
-    "orchestration",
-    "llm",
-    "claude",
-    "openai"
+    "common",
+    "evals",
+    "freebuff",
+    "packages/agent-runtime",
+    "packages/code-map",
+    "packages/llm-providers",
+    "scripts/tmux",
+    "sdk"
   ],
-  "author": "Tarık Tozlu <kanserinc@protonmail.com>",
-  "license": "MIT",
+  "keywords": [
+    "eschaton",
+    "freebuff",
+    "opencode",
+    "claude-code",
+    "antigravity",
+    "tui",
+    "terminal-agent",
+    "coding-assistant"
+  ],
+  "author": "Tarık Tozlu (@Tarikdxd)",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Tarikdxd/Eschaton-Code.git"
+    "url": "https://github.com/Tarikdxd/Eschaton-Code.git"
   },
-  "homepage": "https://github.com/Tarikdxd/Eschaton-Code#readme",
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "bugs": {
+    "url": "https://github.com/Tarikdxd/Eschaton-Code/issues"
+  },
+  "homepage": "https://github.com/Tarikdxd/Eschaton-Code#readme"
 }

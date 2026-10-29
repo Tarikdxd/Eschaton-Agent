@@ -1,121 +1,131 @@
-<div align="center">
-
 # ⚡ Eschaton Code
 
-**Production-Grade Multi-Agent Orchestration Framework & Autonomous Terminal Coding Agent**
+<div align="center">
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Stars](https://img.shields.io/github/stars/Tarikdxd/Eschaton-Code?style=flat-square&color=yellow)](https://github.com/Tarikdxd/Eschaton-Code)
+```
+███████████                        ██                 ▄████  ▄██
+███▀▀▀▀▀▀▀▀                        ██                 ██    ██▀
+███ █████  ██████ ▄█████   ▄████▄  ██████▄  ██   ██ ████████████
+███ ███▀▀  ██▀   ███▄▄▄██ ██▄▄▄███ ██   ▀██ ██   ██   ██    ██
+███ ███    ███   ███▀▀▀▀▀ ██▀▀▀▀▀  ██▄  ▄██ ██▄  ██   ██    ██
+███ ██▀    ██▀    ▀█████   ▀████▀  ██████▀   ▀████▀   ██    ██
+```
 
-*Build autonomous AI agent teams that collaborate in real time, or launch an interactive terminal coding agent right in your command line with a single command.*
+**Next-Generation OpenCode & Freebuff Terminal AI Assistant**  
+*Powered by Freebuff Core 0.2.34, Claude Code Tool Architecture & Native Antigravity Ecosystem*
 
----
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/Tarikdxd/Eschaton-Code)
+[![Antigravity](https://img.shields.io/badge/Antigravity-Integrated-purple.svg)](https://github.com/Tarikdxd/Eschaton-Code)
+[![Claude Code](https://img.shields.io/badge/Engine-Claude%20Code%20Core-orange.svg)](https://github.com/Tarikdxd/Eschaton-Code)
 
 </div>
 
-## 🚀 Quick Terminal Launch (CLI Agent)
+---
 
-You don't need any npm tokens or complex setups to run **Eschaton Code**. Install globally directly from GitHub:
+## 🚀 Quick Start & Installation
+
+Install globally directly from GitHub via npm:
 
 ```bash
 npm install -g https://github.com/Tarikdxd/Eschaton-Code
 ```
 
-Once installed, simply launch your autonomous terminal agent anywhere by typing:
+Once installed, simply run anywhere:
+
 ```bash
 eschaton
 ```
+*(or run `freebuff` / `opencode`)*
 
-```text
-╔══════════════════════════════════════════════════════════════════════╗
-║                    ⚡ ESCHATON CODE CLI AGENT                        ║
-║          Autonomous Multi-Agent Terminal Orchestration Engine        ║
-║                       Developer: @Tarikdxd                           ║
-╚══════════════════════════════════════════════════════════════════════╝
-
-eschaton> /team Build an authenticated REST API with SQLite and JWT
-[⚡ OTONOM AJAN TAKIMI BAŞLATILDI]
--> [Planner] Decomposing goals into topological DAG tasks...
--> [Researcher] Analyzing dependencies and schemas...
--> [Coder] Generating modular source files and tests...
--> [Reviewer] Auditing security, syntax, and zero-leak compliance...
-[✓] Task Completed Successfully!
-```
-
-*(Alternatively, you can clone and run it directly with `git clone https://github.com/Tarikdxd/Eschaton-Code.git && cd Eschaton-Code && npm start`)*
-
----
-
-## 🛠️ CLI Interactive Command Matrix
-
-| Command | Action | Description |
-| :--- | :--- | :--- |
-| `eschaton` | **Launch Agent** | Opens interactive terminal REPL agent session |
-| `/agent <task>` | **Single Agent** | Runs a dedicated autonomous agent with file/bash execution tools |
-| `/team <goal>` | **Multi-Agent Team** | Spawns a full team (*Planner*, *Researcher*, *Coder*, *Reviewer*) resolving DAG tasks |
-| `/tools` | **Inspect Tool Matrix** | Lists built-in tools (`bash`, `file_read`, `file_write`, `file_edit`, `grep`) |
-| `/exit` | **Terminate** | Safely shuts down agent session and saves memory |
-
----
-
-## 📦 Programmatic SDK Usage (Library)
-
-If you're building your own autonomous AI agent systems in Node.js / TypeScript:
+### Instant Zero-Install Launch
+You can also run instantly without installation using `npx`:
 
 ```bash
-npm install https://github.com/Tarikdxd/Eschaton-Code
-```
-
-### 1. Single Agent Workflow
-```typescript
-import { OpenMultiAgent } from '@tarikdxd/eschaton-code'
-
-const orchestrator = new OpenMultiAgent({ defaultModel: 'claude-sonnet-4-6' })
-
-const result = await orchestrator.runAgent(
-  {
-    name: 'coder',
-    model: 'claude-sonnet-4-6',
-    tools: ['bash', 'file_write', 'file_read'],
-  },
-  'Refactor the authentication middleware to support JWT refresh rotation.',
-)
-
-console.log(result.output)
-```
-
-### 2. Multi-Agent Team with DAG Scheduling
-```typescript
-import { OpenMultiAgent } from '@tarikdxd/eschaton-code'
-
-const orchestrator = new OpenMultiAgent()
-
-const team = orchestrator.createTeam('engineering-dept', {
-  name: 'engineering',
-  agents: [
-    { name: 'architect', model: 'claude-sonnet-4-6', systemPrompt: 'You design modular system architectures.' },
-    { name: 'developer', model: 'gpt-4o', tools: ['file_write', 'file_read'], systemPrompt: 'You implement clean code.' },
-    { name: 'security',  model: 'claude-sonnet-4-6', systemPrompt: 'You audit code for vulnerabilities and leak risks.' }
-  ],
-  sharedMemory: true
-})
-
-const result = await orchestrator.runTeam(team, 'Design and implement an encrypted rate-limiter middleware.')
+npx https://github.com/Tarikdxd/Eschaton-Code
 ```
 
 ---
 
-## ✨ Core Framework Architecture
+## 🌟 Key Features
 
-- 🧩 **Topological DAG Task Scheduling:** Tasks declare dependencies. Independent tasks execute concurrently; dependent tasks wait automatically.
-- 🔄 **Model-Agnostic Engine:** Mix Claude 3.7 / 3.5 Sonnet and GPT-4o within the same collaborative agent team.
-- 🪶 **In-Process High Performance:** Zero container or subprocess overhead. Pure Node.js async event loop execution.
-- 💾 **Shared Memory & Event Bus:** Real-time inter-agent messaging and shared state synchronization.
+### 🖥️ 1. Exact High-Fidelity OpenCode / Freebuff TUI
+- **Full Terminal App:** Alternate screen buffer, box-drawing styling, and zero-flicker rendering.
+- **Top Header Status:** Real-time model badge, git branch, directory status, and active token counters.
+- **Interactive Multi-Line Editor:** Cursor navigation, auto-expanding text box, syntax highlighting, and slash command autocompletion (`/`).
+- **Real-Time Diff Viewer:** Highlighting line insertions (`+` green) and deletions (`-` red) with line numbers.
+- **Collapsible Thinking Accordion:** Expandable agent internal reasoning with elapsed timer.
+- **Interactive Model Selector:** Switch on the fly between MiMo v2.6, GLM 5.3 Flash, DeepSeek V4.1, GPT-6, Gemini 3.8 Flash, and more.
+
+### ⚛️ 2. First-Class Native Antigravity Authentication
+- **Auto-Detection:** Automatically discovers your local `~/.gemini/antigravity` environment, installation UUID, and brain storage.
+- **Session Linking:** Pass `--antigravity` or run `eschaton auth` to inspect your connected session:
+  ```bash
+  eschaton auth
+  ```
+  ```text
+  ┌─────────────────────────────────────────────────────────────┐
+  │   ⚡ ESCHATON CODE • ANTIGRAVITY AUTHENTICATION             │
+  ├─────────────────────────────────────────────────────────────┤
+  │   Status:          ● CONNECTED (Active Local Session)       │
+  │   Installation ID: 0c0e9d87-b165-479e-926d-c9938490a27e     │
+  │   Brain Directory: C:\Users\uyuzo\.gemini\antigravity\brain │
+  │   Engine Backend:  Claude Code ReAct + OpenCode TUI         │
+  └─────────────────────────────────────────────────────────────┘
+  ```
+
+### 🧠 3. Claude Code Agent Engine
+- **Tool Architecture:** Implements the complete ReAct tool set (`bash`, `read_file`, `str_replace` diff editor, `write_file`, `glob`, `grep`, and `list_dir`).
+- **Parallel Subagents:** Autonomous task planning, codebase indexation, and multi-file code editing.
 
 ---
 
-## 📄 License
+## 🛠️ CLI Usage & Options
 
-Distributed under the [MIT License](LICENSE). Developed by [Tarık Tozlu (@Tarikdxd)](https://github.com/Tarikdxd).
+```bash
+Usage: eschaton [options] [command]
+
+Commands:
+  login                         Authenticate with your Freebuff / Codebuff account
+  auth, --antigravity           Inspect Antigravity session status & local brain sync
+
+Options:
+  -v, --version                 Print version information
+  --continue [conversation-id]  Continue from a previous conversation
+  --cwd <directory>             Set the working directory (default: current directory)
+  --trust-agents                Load repository's .agents files and mcp.json without prompt
+  -h, --help                    Show this help message
+```
+
+---
+
+## 📁 Repository Architecture
+
+This repository contains the complete OpenCode / Freebuff monorepo source code:
+
+- `cli/`: OpenTUI and React terminal user interface implementation.
+- `common/`: Core shared utilities, model catalog definitions, and types.
+- `agents/`: Autonomous coding agents and agent configurations.
+- `packages/`: Agent runtime, code mapping, and LLM provider drivers.
+- `sdk/`: Client SDK for programmatically integrating the agent runtime.
+- `freebuff/`: Extended web & cloud distribution assets.
+- `bin/`: Cross-platform launcher with zero-dependency auto-extractor and Antigravity bridge.
+
+---
+
+## 🤝 Contributing
+
+Contributions are warmly welcomed! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md) to learn about our agent guidelines and architecture.
+
+```bash
+git clone https://github.com/Tarikdxd/Eschaton-Code.git
+cd Eschaton-Code
+bun install
+```
+
+---
+
+## 📜 License
+
+Licensed under the [Apache License 2.0](./LICENSE).  
+Maintained by Tarık Tozlu ([@Tarikdxd](https://github.com/Tarikdxd)).

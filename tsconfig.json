@@ -1,25 +1,27 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "lib": ["ES2022"],
-    "outDir": "dist",
-    "rootDir": "src",
-    "declaration": true,
-    "declarationMap": true,
-    "sourceMap": true,
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@codebuff/common/*": ["./common/src/*"],
+      "@codebuff/evals/*": ["./evals/*"],
+      "@codebuff/sdk": ["./sdk/src/index.ts"],
+      "@codebuff/sdk/*": ["./sdk/*"],
+      "@codebuff/agent-runtime/*": ["./packages/agent-runtime/src/*"],
+      "@codebuff/llm-providers/*": ["./packages/llm-providers/src/*"],
+      "@codebuff/code-map/*": ["./packages/code-map/*"]
+    }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "examples", "tests"]
+  "files": [],
+  "references": [
+    { "path": "./common" },
+    { "path": "./agents" },
+    { "path": "./sdk" },
+    { "path": "./cli" },
+    { "path": "./evals" },
+    { "path": "./packages/agent-runtime" },
+    { "path": "./packages/code-map" },
+    { "path": "./packages/llm-providers" }
+  ]
 }

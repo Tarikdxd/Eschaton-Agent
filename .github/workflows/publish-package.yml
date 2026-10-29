@@ -18,10 +18,8 @@ jobs:
           node-version: '22.x'
           registry-url: 'https://npm.pkg.github.com'
           scope: '@tarikdxd'
-      - name: Install dependencies & Build
-        run: |
-          npm ci || npm install
-          npm run build
+      - name: Install dependencies
+        run: npm install --ignore-scripts
       - name: Publish to GitHub Packages
         run: npm publish --access public
         env:
