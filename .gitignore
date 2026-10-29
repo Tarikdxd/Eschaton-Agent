@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -77,7 +77,6 @@ web_modules/
 .env.local
 
 # Build output
-dist/
 
 # Editor directories
 .vscode/
