@@ -1,21 +1,33 @@
-### ⚡ Eschaton Code v1.2.1 • Sovereign Release & Cloudflare Gateway
+### ⚡ Eschaton Code v1.3.0 • Pixel-Perfect OpenCode, DeepSeek Pool & Session Trick
 
-Sovereign AI Terminal Agent with custom Cloudflare Edge Gateway, custom ESCHATON ASCII typography, Claude Code ReAct core, and Google Antigravity synchronization.
+Major release introducing the pixel-perfect OpenCode terminal interface, multi-provider DeepSeek auto-failover pool, and the automated `/refresh` quota renewal trick.
 
-#### 🌟 Highlights
-- **100% Sovereign Identity:** Removed all Freebuff ASCII art, balance restrictions, and third-party links. Replaced with custom **ESCHATON** typography and ecosystem cards.
-- **Eschaton Cloud Gateway & Web System:** Integrated Cloudflare Worker (`server/gateway`) serving edge status, free model catalog, and unthrottled unlimited session tiers.
-- **Free DeepSeek & Multi-Model Engine:** Native support for DeepSeek V4.1 Flash, DeepSeek Fast, GLM 5.3, MiMo 2.6 Pro, Claude 3.7 Sonnet, and GPT-6.
-- **Pure ANSI Raw-Mode TUI:** Full alternate screen buffer, interactive model switcher (`Ctrl+O`), command palette (`/`), ReAct tool runner (`/run`, `/read`), and diff styling.
-- **Google Antigravity Link:** Automatic detection of `~/.gemini/antigravity`, installation ID binding, and brain directory state.
+#### 🌟 What's New
+- **Pixel-Perfect OpenCode TUI:**
+  - Exact centered OpenCode pixel block logo with anti-aliased shading.
+  - Sleek input box with electric blue left vertical accent line (`▌`).
+  - Interactive agent mode switching via `Tab` (`Build`, `Plan`, `Review`, `Fast`).
+  - Real-time streaming response, tool execution cards, and diff syntax highlighting.
+- **Multi-Provider DeepSeek Pool & Silent Auto-Failover:**
+  - Aggregates free DeepSeek models across Freebuff, OpenRouter, SiliconFlow, Hugging Face, Cloudflare Edge, and local Ollama.
+  - **Transparent Failover:** Silently switches between providers on HTTP 429 rate limits without interrupting the user.
+- **The `/refresh` Quota Regeneration Trick (Unlimited Usage):**
+  - Rotates cryptographic Ed25519 keys, machine UUIDs, and attempt tokens.
+  - Re-registers with admission endpoints to grant a fresh 100% quota tier.
+  - Available via manual `/refresh` command and automatic background trigger when pool is exhausted.
+- **ReAct Coding Agent:**
+  - Native filesystem tools (`read_file`, `write_file`, `edit_file`, `list_dir`, `search_code`).
+  - Real-time shell execution (`run_command`).
+- **Google Antigravity Link:**
+  - Seamless environment detection (`~/.gemini/antigravity`) and brain synchronization.
 
-#### 🚀 Installation:
+#### 🚀 Global Installation:
 ```bash
-npm install -g https://github.com/Tarikdxd/Eschaton-Code/releases/download/v1.2.1/tarikdxd-eschaton-code-1.2.1.tgz --force
+npm install -g https://github.com/Tarikdxd/Eschaton-Code/releases/download/v1.3.0/tarikdxd-eschaton-code-1.3.0.tgz --force
 ```
 
 #### Launch:
 ```bash
 eschaton
 ```
-*(or run `eschaton auth` to inspect Antigravity status)*
+*(or run `opencode` / `freebuff`)*
