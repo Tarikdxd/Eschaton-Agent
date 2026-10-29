@@ -1,5 +1,17 @@
 # Release notes
 
+## 3.2.0
+
+Compatibility features borrowed from the way other terminal agents work. No code from them is
+used; these are independent implementations of the same ideas.
+
+- **Project memory.** `ESCHATON.md`, `AGENTS.md` or `CLAUDE.md` is loaded into the system prompt.
+- **Custom commands.** Markdown files in `.eschaton/commands` become slash commands with
+  `$ARGUMENTS` substitution. `/commands` lists them.
+- **`@file`** attaches a file to the prompt. **`!command`** runs a shell command directly.
+- **Print mode.** `eschaton -p "<prompt>"` runs one prompt and exits; `--yes` allows edits and
+  commands, otherwise the run is read-only.
+
 ## 3.1.0
 
 The terminal agent is the main product again, and it now uses native tool calling.

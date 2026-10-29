@@ -374,13 +374,49 @@ function linkSignals(signal, timeoutMs) {
 // src/ui/tui.ts
 import readline from "node:readline";
 import process2 from "node:process";
+import fs6 from "node:fs";
+import path6 from "node:path";
 import { execSync } from "node:child_process";
 
 // src/agent/coding-agent.ts
-import fs2 from "node:fs";
-import path2 from "node:path";
+import fs3 from "node:fs";
+import path3 from "node:path";
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+
+// src/memory.ts
+import fs2 from "node:fs";
+import path2 from "node:path";
+var CANDIDATES = ["ESCHATON.md", "AGENTS.md", "CLAUDE.md"];
+var MAX_BYTES = 16e3;
+function loadMemory(cwd) {
+  const found = [];
+  for (const name of CANDIDATES) {
+    const file = path2.join(cwd, name);
+    try {
+      if (!fs2.existsSync(file)) continue;
+      const raw = fs2.readFileSync(file, "utf-8");
+      found.push({ source: name, content: raw.slice(0, MAX_BYTES) });
+    } catch {
+    }
+  }
+  return found;
+}
+function memoryBlock(cwd) {
+  const files = loadMemory(cwd);
+  if (!files.length) return "";
+  const parts = files.map(
+    (file) => `--- ${file.source} ---
+${file.content.trim()}
+--- end of ${file.source} ---`
+  );
+  return `
+
+Project instructions, written by the user. Follow them.
+${parts.join("\n\n")}`;
+}
+
+// src/agent/coding-agent.ts
 var execAsync = promisify(exec);
 var MODES = ["Build", "Plan", "Review", "Fast"];
 var READ_ONLY_MODES = ["Plan", "Review"];
@@ -489,7 +525,7 @@ Rules:
 - Paths are relative to the working directory.
 - Run the project's own test or build command after changing code, if one exists.
 - Never invent file contents. If something is unknown, read it.
-- Keep answers short. The terminal is not a document editor.`;
+- Keep answers short. The terminal is not a document editor.${memoryBlock(cwd)}`;
 }
 var CodingAgent = class {
   pool;
@@ -593,12 +629,12 @@ ${truncate(result.output, 3e4)}` });
   undoLast() {
     const entry = this.undoStack.pop();
     if (!entry) return void 0;
-    const file = path2.resolve(this.cwd, entry.path);
+    const file = path3.resolve(this.cwd, entry.path);
     if (entry.before === void 0) {
-      fs2.rmSync(file, { force: true });
+      fs3.rmSync(file, { force: true });
     } else {
-      fs2.mkdirSync(path2.dirname(file), { recursive: true });
-      fs2.writeFileSync(file, entry.before, "utf-8");
+      fs3.mkdirSync(path3.dirname(file), { recursive: true });
+      fs3.writeFileSync(file, entry.before, "utf-8");
     }
     return entry;
   }
@@ -650,20 +686,20 @@ ${summary}` },
     }
   }
   remember(filePath) {
-    const file = path2.resolve(this.cwd, filePath);
-    const before = fs2.existsSync(file) ? fs2.readFileSync(file, "utf-8") : void 0;
+    const file = path3.resolve(this.cwd, filePath);
+    const before = fs3.existsSync(file) ? fs3.readFileSync(file, "utf-8") : void 0;
     this.undoStack.push({ path: filePath, before });
     if (this.undoStack.length > 50) this.undoStack.shift();
   }
   describe(tool, args) {
     if (tool === "write_file") {
-      const target = path2.resolve(this.cwd, args.filePath ?? "");
-      const before = fs2.existsSync(target) ? fs2.readFileSync(target, "utf-8") : void 0;
+      const target = path3.resolve(this.cwd, args.filePath ?? "");
+      const before = fs3.existsSync(target) ? fs3.readFileSync(target, "utf-8") : void 0;
       return { kind: "write", path: args.filePath, before, after: String(args.content ?? ""), needsApproval: true };
     }
     if (tool === "edit_file") {
-      const target = path2.resolve(this.cwd, args.filePath ?? "");
-      const before = fs2.existsSync(target) ? fs2.readFileSync(target, "utf-8") : void 0;
+      const target = path3.resolve(this.cwd, args.filePath ?? "");
+      const before = fs3.existsSync(target) ? fs3.readFileSync(target, "utf-8") : void 0;
       const needle = String(args.target ?? "");
       const after = before?.includes(needle) ? before.replace(needle, String(args.replacement ?? "")) : void 0;
       return { kind: "edit", path: args.filePath, before, after, needsApproval: true };
@@ -676,29 +712,29 @@ ${summary}` },
   async runTool(tool, args) {
     switch (tool) {
       case "read_file": {
-        const file = path2.resolve(this.cwd, args.filePath);
-        if (!fs2.existsSync(file)) return `File not found: ${args.filePath}`;
-        const lines = fs2.readFileSync(file, "utf-8").split("\n");
+        const file = path3.resolve(this.cwd, args.filePath);
+        if (!fs3.existsSync(file)) return `File not found: ${args.filePath}`;
+        const lines = fs3.readFileSync(file, "utf-8").split("\n");
         const start = Math.max(1, Number(args.startLine) || 1);
         const end = Math.min(lines.length, Number(args.endLine) || lines.length);
         return lines.slice(start - 1, end).map((line, i) => `${start + i}: ${line}`).join("\n");
       }
       case "write_file": {
-        const file = path2.resolve(this.cwd, args.filePath);
-        fs2.mkdirSync(path2.dirname(file), { recursive: true });
-        fs2.writeFileSync(file, args.content ?? "", "utf-8");
+        const file = path3.resolve(this.cwd, args.filePath);
+        fs3.mkdirSync(path3.dirname(file), { recursive: true });
+        fs3.writeFileSync(file, args.content ?? "", "utf-8");
         return `Wrote ${Buffer.byteLength(args.content ?? "")} bytes to ${args.filePath}`;
       }
       case "edit_file": {
-        const file = path2.resolve(this.cwd, args.filePath);
-        if (!fs2.existsSync(file)) return `File not found: ${args.filePath}`;
-        const content = fs2.readFileSync(file, "utf-8");
+        const file = path3.resolve(this.cwd, args.filePath);
+        if (!fs3.existsSync(file)) return `File not found: ${args.filePath}`;
+        const content = fs3.readFileSync(file, "utf-8");
         const target = args.target ?? "";
         if (!target) return "target is empty";
         if (!content.includes(target)) {
           return `Target string not found in ${args.filePath}. Read the file again and copy the exact text.`;
         }
-        fs2.writeFileSync(file, content.replace(target, args.replacement ?? ""), "utf-8");
+        fs3.writeFileSync(file, content.replace(target, args.replacement ?? ""), "utf-8");
         return `Edited ${args.filePath}`;
       }
       case "run_command": {
@@ -719,29 +755,29 @@ ${err.stderr ?? ""}`.trim();
         }
       }
       case "list_dir": {
-        const dir = path2.resolve(this.cwd, args.dirPath || ".");
-        if (!fs2.existsSync(dir)) return `Directory not found: ${args.dirPath || "."}`;
-        return fs2.readdirSync(dir, { withFileTypes: true }).map((entry) => `${entry.isDirectory() ? "dir  " : "file "} ${entry.name}`).join("\n") || "(empty)";
+        const dir = path3.resolve(this.cwd, args.dirPath || ".");
+        if (!fs3.existsSync(dir)) return `Directory not found: ${args.dirPath || "."}`;
+        return fs3.readdirSync(dir, { withFileTypes: true }).map((entry) => `${entry.isDirectory() ? "dir  " : "file "} ${entry.name}`).join("\n") || "(empty)";
       }
       case "search_code": {
         const pattern = args.pattern ?? "";
         if (!pattern) return "pattern is empty";
-        const root = path2.resolve(this.cwd, args.dirPath || ".");
+        const root = path3.resolve(this.cwd, args.dirPath || ".");
         const hits = [];
         const skip = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", ".next"]);
         const walk = (dir) => {
           if (hits.length >= 50) return;
-          for (const entry of fs2.readdirSync(dir, { withFileTypes: true })) {
+          for (const entry of fs3.readdirSync(dir, { withFileTypes: true })) {
             if (hits.length >= 50) return;
             if (skip.has(entry.name)) continue;
-            const full = path2.join(dir, entry.name);
+            const full = path3.join(dir, entry.name);
             if (entry.isDirectory()) {
               walk(full);
               continue;
             }
             try {
-              if (fs2.statSync(full).size > 512 * 1024) continue;
-              if (fs2.readFileSync(full, "utf-8").includes(pattern)) hits.push(path2.relative(root, full));
+              if (fs3.statSync(full).size > 512 * 1024) continue;
+              if (fs3.readFileSync(full, "utf-8").includes(pattern)) hits.push(path3.relative(root, full));
             } catch {
             }
           }
@@ -799,12 +835,12 @@ function accumulate(target, next) {
 }
 
 // src/session.ts
-import fs3 from "node:fs";
+import fs4 from "node:fs";
 import os2 from "node:os";
-import path3 from "node:path";
-var SESSION_DIR = path3.join(os2.homedir(), ".eschaton", "sessions");
+import path4 from "node:path";
+var SESSION_DIR = path4.join(os2.homedir(), ".eschaton", "sessions");
 function saveSession(session) {
-  fs3.mkdirSync(SESSION_DIR, { recursive: true });
+  fs4.mkdirSync(SESSION_DIR, { recursive: true });
   const record = {
     id: session.id ?? newId(),
     createdAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -813,27 +849,27 @@ function saveSession(session) {
     model: session.model,
     messages: session.messages
   };
-  fs3.writeFileSync(path3.join(SESSION_DIR, `${record.id}.json`), JSON.stringify(record, null, 2), "utf-8");
+  fs4.writeFileSync(path4.join(SESSION_DIR, `${record.id}.json`), JSON.stringify(record, null, 2), "utf-8");
   prune();
   return record;
 }
 function loadSession(id) {
   try {
-    const raw = fs3.readFileSync(path3.join(SESSION_DIR, `${id}.json`), "utf-8");
+    const raw = fs4.readFileSync(path4.join(SESSION_DIR, `${id}.json`), "utf-8");
     return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 function latestSession(cwd = process.cwd()) {
-  const sessions = listSessions().filter((session) => path3.resolve(session.cwd) === path3.resolve(cwd));
+  const sessions = listSessions().filter((session) => path4.resolve(session.cwd) === path4.resolve(cwd));
   return sessions[0] ?? null;
 }
 function listSessions() {
   try {
-    return fs3.readdirSync(SESSION_DIR).filter((name) => name.endsWith(".json")).map((name) => {
+    return fs4.readdirSync(SESSION_DIR).filter((name) => name.endsWith(".json")).map((name) => {
       try {
-        return JSON.parse(fs3.readFileSync(path3.join(SESSION_DIR, name), "utf-8"));
+        return JSON.parse(fs4.readFileSync(path4.join(SESSION_DIR, name), "utf-8"));
       } catch {
         return null;
       }
@@ -846,7 +882,7 @@ function prune(keep = 50) {
   const sessions = listSessions();
   for (const session of sessions.slice(keep)) {
     try {
-      fs3.unlinkSync(path3.join(SESSION_DIR, `${session.id}.json`));
+      fs4.unlinkSync(path4.join(SESSION_DIR, `${session.id}.json`));
     } catch {
     }
   }
@@ -855,6 +891,38 @@ function newId() {
   const stamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   const suffix = Math.random().toString(36).slice(2, 6);
   return `${stamp}-${suffix}`;
+}
+
+// src/commands.ts
+import fs5 from "node:fs";
+import path5 from "node:path";
+var COMMAND_DIR = path5.join(".eschaton", "commands");
+function loadCommands(cwd) {
+  const dir = path5.join(cwd, COMMAND_DIR);
+  if (!fs5.existsSync(dir)) return [];
+  const commands = [];
+  for (const entry of fs5.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
+    try {
+      const source = path5.join(COMMAND_DIR, entry.name);
+      const body = fs5.readFileSync(path5.join(dir, entry.name), "utf-8");
+      const firstLine2 = body.split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith("#")) ?? "";
+      commands.push({
+        name: entry.name.replace(/\.md$/, ""),
+        description: firstLine2.slice(0, 100),
+        body,
+        source
+      });
+    } catch {
+    }
+  }
+  return commands.sort((a, b) => a.name.localeCompare(b.name));
+}
+function expandCommand(command, argument) {
+  const body = command.body.replace(/^\s*#[^\n]*\n/, "");
+  return body.includes("$ARGUMENTS") ? body.replaceAll("$ARGUMENTS", argument) : `${body}
+
+${argument}`.trim();
 }
 
 // src/ui/theme.ts
@@ -1039,8 +1107,13 @@ var TerminalUI = class {
     const text = [...this.pending, input].join("\n").trim();
     this.pending = [];
     this.setPrompt();
+    if (text.startsWith("!")) {
+      this.runShell(text.slice(1).trim());
+      this.rl?.prompt();
+      return;
+    }
     if (!text.startsWith("/")) {
-      await this.runTask(text);
+      await this.runTask(this.expandFileRefs(text));
       return;
     }
     await this.runCommand(text);
@@ -1228,9 +1301,70 @@ var TerminalUI = class {
           "Create an AGENTS.md in the project root describing how to build, test and navigate this repository. Read the README, package.json or equivalent first. Keep it under 60 lines."
         );
         return;
-      default:
+      case "commands":
+        this.listCommands();
+        return;
+      default: {
+        const custom = loadCommands(this.options.cwd).find((item) => item.name === command);
+        if (custom) {
+          await this.runTask(expandCommand(custom, argument));
+          return;
+        }
         process2.stdout.write(c.dim(`  unknown command /${command}, try /help`) + "\n");
+      }
     }
+  }
+  runShell(command) {
+    if (!command) return;
+    try {
+      const output = execSync(command, {
+        cwd: this.options.cwd,
+        encoding: "utf-8",
+        timeout: 6e4,
+        maxBuffer: 4 * 1024 * 1024
+      });
+      process2.stdout.write(output.trimEnd() + "\n");
+    } catch (err) {
+      if (err?.stdout) process2.stdout.write(String(err.stdout));
+      if (err?.stderr) process2.stdout.write(c.red(String(err.stderr)));
+      if (!err?.stdout && !err?.stderr) process2.stdout.write(c.red(String(err?.message ?? err)) + "\n");
+    }
+  }
+  expandFileRefs(text) {
+    const matches = [...text.matchAll(/(?:^|\s)@([\w./\\-]+)/g)];
+    if (!matches.length) return text;
+    const blocks = [];
+    let budget = 4e4;
+    for (const match of matches.slice(0, 5)) {
+      const relative = match[1];
+      const file = path6.resolve(this.options.cwd, relative);
+      try {
+        if (budget <= 0) break;
+        const content = fs6.readFileSync(file, "utf-8");
+        const slice = content.slice(0, Math.min(budget, 2e4));
+        budget -= slice.length;
+        blocks.push(`
+<file path="${relative}">
+${slice}
+</file>`);
+      } catch {
+      }
+    }
+    return blocks.length ? `${text}
+${blocks.join("\n")}` : text;
+  }
+  listCommands() {
+    const commands = loadCommands(this.options.cwd);
+    if (!commands.length) {
+      process2.stdout.write(c.dim("  no custom commands. add .eschaton/commands/<name>.md") + "\n");
+      return;
+    }
+    process2.stdout.write("\n");
+    for (const command of commands) {
+      process2.stdout.write(`  ${c.cyan(`/${command.name}`.padEnd(18))} ${c.dim(command.description)}
+`);
+    }
+    process2.stdout.write("\n");
   }
   undo() {
     const entry = this.agent.undoLast();
@@ -1366,6 +1500,7 @@ var TerminalUI = class {
       ["/model [name]", "show or set the model for the active provider"],
       ["/providers [n]", "list providers, or switch to number n"],
       ["/init", "write an AGENTS.md for this project"],
+      ["/commands", "list custom commands from .eschaton/commands"],
       ["/diff", "show the working tree diff"],
       ["/undo", "revert the last file the agent changed"],
       ["/compact", "summarize the conversation to free context"],
@@ -1381,7 +1516,7 @@ var TerminalUI = class {
 `);
     }
     process2.stdout.write(
-      "\n" + c.dim("  Anything else is sent to the agent. End a line with \\ to continue on the next line.") + "\n" + c.dim("  Tool calls that write files or run commands ask for confirmation first.") + "\n\n"
+      "\n" + c.dim("  Anything else is sent to the agent. End a line with \\ to continue on the next line.") + "\n" + c.dim("  @path adds a file to the prompt, !command runs a shell command.") + "\n" + c.dim("  Tool calls that write files or run commands ask for confirmation first.") + "\n\n"
     );
   }
   startSpinner() {
@@ -1437,8 +1572,8 @@ function firstLine(text) {
 
 // src/ide/server.ts
 import http from "node:http";
-import fs4 from "node:fs";
-import path4 from "node:path";
+import fs7 from "node:fs";
+import path7 from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", ".next", ".cache", "coverage"]);
@@ -1455,7 +1590,7 @@ var MIME = {
   ".ttf": "font/ttf"
 };
 async function startIde(options) {
-  const root = path4.resolve(options.cwd);
+  const root = path7.resolve(options.cwd);
   const pool = new ProviderPool(providersFromSettings());
   if (options.model) pool.setModel(options.model);
   await pool.detectLocal();
@@ -1487,7 +1622,7 @@ async function startIde(options) {
     if (route === "/api/state") {
       return sendJson(res, 200, {
         cwd: root,
-        name: path4.basename(root),
+        name: path7.basename(root),
         model: pool.active()?.model ?? null,
         provider: pool.active()?.label ?? null,
         providers: pool.list().map((provider) => ({
@@ -1496,7 +1631,7 @@ async function startIde(options) {
           model: provider.model,
           local: provider.local
         })),
-        sessions: listSessions().filter((session) => path4.resolve(session.cwd) === root).slice(0, 20).map((session) => ({
+        sessions: listSessions().filter((session) => path7.resolve(session.cwd) === root).slice(0, 20).map((session) => ({
           id: session.id,
           createdAt: session.createdAt,
           mode: session.mode,
@@ -1509,9 +1644,9 @@ async function startIde(options) {
       const relative = url2.searchParams.get("path") ?? ".";
       const target = safePath(root, relative);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      const entries = fs4.readdirSync(target, { withFileTypes: true }).filter((entry) => !entry.name.startsWith(".")).map((entry) => ({
+      const entries = fs7.readdirSync(target, { withFileTypes: true }).filter((entry) => !entry.name.startsWith(".")).map((entry) => ({
         name: entry.name,
-        path: path4.relative(root, path4.join(target, entry.name)).replace(/\\/g, "/"),
+        path: path7.relative(root, path7.join(target, entry.name)).replace(/\\/g, "/"),
         dir: entry.isDirectory()
       })).sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name));
       return sendJson(res, 200, { entries });
@@ -1525,38 +1660,38 @@ async function startIde(options) {
       const relative = url2.searchParams.get("path") ?? "";
       const target = safePath(root, relative);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (!fs4.existsSync(target) || fs4.statSync(target).isDirectory()) {
+      if (!fs7.existsSync(target) || fs7.statSync(target).isDirectory()) {
         return sendJson(res, 404, { error: "file not found" });
       }
-      if (fs4.statSync(target).size > MAX_FILE_BYTES) return sendJson(res, 413, { error: "file is too large" });
-      return sendJson(res, 200, { path: relative, content: fs4.readFileSync(target, "utf-8") });
+      if (fs7.statSync(target).size > MAX_FILE_BYTES) return sendJson(res, 413, { error: "file is too large" });
+      return sendJson(res, 200, { path: relative, content: fs7.readFileSync(target, "utf-8") });
     }
     if (route === "/api/file" && req.method === "PUT") {
       const body = await readJson(req);
       const target = safePath(root, body.path);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      fs4.mkdirSync(path4.dirname(target), { recursive: true });
-      fs4.writeFileSync(target, body.content ?? "", "utf-8");
+      fs7.mkdirSync(path7.dirname(target), { recursive: true });
+      fs7.writeFileSync(target, body.content ?? "", "utf-8");
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/file" && req.method === "POST") {
       const body = await readJson(req);
       const target = safePath(root, body.path);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (fs4.existsSync(target)) return sendJson(res, 409, { error: "already exists" });
+      if (fs7.existsSync(target)) return sendJson(res, 409, { error: "already exists" });
       if (body.dir) {
-        fs4.mkdirSync(target, { recursive: true });
+        fs7.mkdirSync(target, { recursive: true });
       } else {
-        fs4.mkdirSync(path4.dirname(target), { recursive: true });
-        fs4.writeFileSync(target, "", "utf-8");
+        fs7.mkdirSync(path7.dirname(target), { recursive: true });
+        fs7.writeFileSync(target, "", "utf-8");
       }
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/file" && req.method === "DELETE") {
       const target = safePath(root, url2.searchParams.get("path") ?? "");
       if (!target || target === root) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (!fs4.existsSync(target)) return sendJson(res, 404, { error: "not found" });
-      fs4.rmSync(target, { recursive: true, force: true });
+      if (!fs7.existsSync(target)) return sendJson(res, 404, { error: "not found" });
+      fs7.rmSync(target, { recursive: true, force: true });
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/rename" && req.method === "POST") {
@@ -1564,10 +1699,10 @@ async function startIde(options) {
       const from = safePath(root, body.from);
       const to = safePath(root, body.to);
       if (!from || !to) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (!fs4.existsSync(from)) return sendJson(res, 404, { error: "not found" });
-      if (fs4.existsSync(to)) return sendJson(res, 409, { error: "target already exists" });
-      fs4.mkdirSync(path4.dirname(to), { recursive: true });
-      fs4.renameSync(from, to);
+      if (!fs7.existsSync(from)) return sendJson(res, 404, { error: "not found" });
+      if (fs7.existsSync(to)) return sendJson(res, 409, { error: "target already exists" });
+      fs7.mkdirSync(path7.dirname(to), { recursive: true });
+      fs7.renameSync(from, to);
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/search") {
@@ -1578,10 +1713,10 @@ async function startIde(options) {
       walk(root, files);
       for (const relative of files) {
         if (results.length >= 200) break;
-        const file = path4.join(root, relative);
+        const file = path7.join(root, relative);
         try {
-          if (fs4.statSync(file).size > 512 * 1024) continue;
-          const content = fs4.readFileSync(file, "utf-8");
+          if (fs7.statSync(file).size > 512 * 1024) continue;
+          const content = fs7.readFileSync(file, "utf-8");
           if (content.includes("\0")) continue;
           content.split("\n").forEach((text, index) => {
             if (results.length < 200 && text.toLowerCase().includes(query.toLowerCase())) {
@@ -1749,21 +1884,21 @@ async function startIde(options) {
   }
   async function serveStatic(route, res) {
     const clean = route === "/" ? "index.html" : decodeURIComponent(route).replace(/^\/+/, "");
-    const target = path4.join(publicDir, clean);
-    if (!target.startsWith(publicDir) || !fs4.existsSync(target) || fs4.statSync(target).isDirectory()) {
+    const target = path7.join(publicDir, clean);
+    if (!target.startsWith(publicDir) || !fs7.existsSync(target) || fs7.statSync(target).isDirectory()) {
       return sendJson(res, 404, { error: "not found" });
     }
-    res.writeHead(200, { "Content-Type": MIME[path4.extname(target)] ?? "application/octet-stream" });
-    fs4.createReadStream(target).pipe(res);
+    res.writeHead(200, { "Content-Type": MIME[path7.extname(target)] ?? "application/octet-stream" });
+    fs7.createReadStream(target).pipe(res);
   }
   function walk(dir, out) {
     if (out.length >= MAX_FILES) return;
-    for (const entry of fs4.readdirSync(dir, { withFileTypes: true })) {
+    for (const entry of fs7.readdirSync(dir, { withFileTypes: true })) {
       if (out.length >= MAX_FILES) return;
       if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
-      const full = path4.join(dir, entry.name);
+      const full = path7.join(dir, entry.name);
       if (entry.isDirectory()) walk(full, out);
-      else out.push(path4.relative(root, full).replace(/\\/g, "/"));
+      else out.push(path7.relative(root, full).replace(/\\/g, "/"));
     }
   }
   const port = await listen(server, options.port);
@@ -1788,15 +1923,15 @@ function publicPreview(preview) {
   };
 }
 function safePath(root, relative) {
-  const target = path4.resolve(root, relative);
-  const normalizedRoot = root.endsWith(path4.sep) ? root : root + path4.sep;
+  const target = path7.resolve(root, relative);
+  const normalizedRoot = root.endsWith(path7.sep) ? root : root + path7.sep;
   return target === root || target.startsWith(normalizedRoot) ? target : null;
 }
 function findPublicDir() {
-  const here = path4.dirname(fileURLToPath(import.meta.url));
-  const candidates = [path4.join(here, "public"), path4.join(here, "../public"), path4.join(here, "web")];
+  const here = path7.dirname(fileURLToPath(import.meta.url));
+  const candidates = [path7.join(here, "public"), path7.join(here, "../public"), path7.join(here, "web")];
   for (const candidate of candidates) {
-    if (fs4.existsSync(path4.join(candidate, "index.html"))) return candidate;
+    if (fs7.existsSync(path7.join(candidate, "index.html"))) return candidate;
   }
   throw new Error("IDE assets not found. Run `npm run build` first.");
 }
@@ -1859,7 +1994,7 @@ function openBrowser(url) {
 }
 
 // src/cli.ts
-var VERSION = "3.1.0";
+var VERSION = "3.2.0";
 var DEFAULT_PORT = 4123;
 function setupText() {
   return `
@@ -1892,6 +2027,7 @@ Commands:
   (none)                    start the terminal agent in this directory
   ide [--port 4123]         open the browser IDE instead
   chat                      start the terminal agent (same as no command)
+  -p, --print "<prompt>"    run one prompt, print the answer and exit
   doctor                    show detected models and settings
   setup                     show how to connect a model
   login <provider> <key>    save a key: deepseek, openrouter, groq, custom
@@ -1901,6 +2037,7 @@ Options:
   --no-open                 do not open a browser
   -m, --model <name>        override the model for this session
   --mode <name>             build, plan, review or fast
+  --yes                     allow edits and commands without asking (-p only)
   -h, --help                show this help
   -v, --version             print the version
 `);
@@ -1996,6 +2133,42 @@ async function runIde(argv) {
   });
   return 0;
 }
+async function runPrint(prompt, argv) {
+  const model = flag(argv, "-m", "--model");
+  const mode = parseMode(flag(argv, "--mode"));
+  const yes = argv.includes("--yes");
+  const pool = new ProviderPool(providersFromSettings());
+  if (model) pool.setModel(model);
+  await pool.detectLocal();
+  if (!pool.list().length) {
+    process3.stdout.write(setupText());
+    return 1;
+  }
+  const agent = new CodingAgent(pool, process3.cwd(), mode ?? "Build");
+  let wrote = false;
+  try {
+    const result = await agent.run(
+      prompt,
+      {
+        onToken: (token) => {
+          wrote = true;
+          process3.stdout.write(token);
+        }
+      },
+      {
+        approve: async () => yes
+      }
+    );
+    if (!wrote && result.text) process3.stdout.write(result.text);
+    process3.stdout.write("\n");
+    return 0;
+  } catch (err) {
+    if (wrote) process3.stdout.write("\n");
+    process3.stderr.write(`eschaton: ${err?.message ?? err}
+`);
+    return 1;
+  }
+}
 async function runChat(argv) {
   const model = flag(argv, "-m", "--model");
   const mode = parseMode(flag(argv, "--mode"));
@@ -2035,6 +2208,15 @@ async function main() {
   if (command === "login") return runLogin(argv.slice(1));
   if (command === "doctor") return runDoctor();
   if (command === "chats" || command === "chat") return runChat(argv.slice(1));
+  const printIndex = argv.findIndex((arg) => arg === "-p" || arg === "--print");
+  if (printIndex >= 0) {
+    const prompt = argv[printIndex + 1];
+    if (!prompt) {
+      process3.stderr.write('usage: eschaton -p "<prompt>"\n');
+      return 1;
+    }
+    return runPrint(prompt, argv);
+  }
   if (command === "setup") {
     process3.stdout.write(setupText());
     return 0;

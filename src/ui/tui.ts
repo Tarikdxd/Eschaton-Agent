@@ -1,5 +1,7 @@
 import readline from 'node:readline'
 import process from 'node:process'
+import fs from 'node:fs'
+import path from 'node:path'
 import { execSync } from 'node:child_process'
 import {
   CodingAgent,
@@ -10,6 +12,7 @@ import {
 } from '../agent/coding-agent.js'
 import { ProviderPool, type ToolCall, type Usage } from '../llm/providers.js'
 import { latestSession, listSessions, loadSession, saveSession } from '../session.js'
+import { expandCommand, loadCommands } from '../commands.js'
 import { c, sym } from './theme.js'
 import {
   failLine,
@@ -149,8 +152,14 @@ export class TerminalUI {
     this.pending = []
     this.setPrompt()
 
+    if (text.startsWith('!')) {
+      this.runShell(text.slice(1).trim())
+      this.rl?.prompt()
+      return
+    }
+
     if (!text.startsWith('/')) {
-      await this.runTask(text)
+      await this.runTask(this.expandFileRefs(text))
       return
     }
 
@@ -354,9 +363,75 @@ export class TerminalUI {
           'Create an AGENTS.md in the project root describing how to build, test and navigate this repository. Read the README, package.json or equivalent first. Keep it under 60 lines.',
         )
         return
-      default:
+      case 'commands':
+        this.listCommands()
+        return
+      default: {
+        const custom = loadCommands(this.options.cwd).find((item) => item.name === command)
+        if (custom) {
+          await this.runTask(expandCommand(custom, argument))
+          return
+        }
         process.stdout.write(c.dim(`  unknown command /${command}, try /help`) + '\n')
+      }
     }
+  }
+
+  private runShell(command: string): void {
+    if (!command) return
+
+    try {
+      const output = execSync(command, {
+        cwd: this.options.cwd,
+        encoding: 'utf-8',
+        timeout: 60_000,
+        maxBuffer: 4 * 1024 * 1024,
+      })
+      process.stdout.write(output.trimEnd() + '\n')
+    } catch (err: any) {
+      if (err?.stdout) process.stdout.write(String(err.stdout))
+      if (err?.stderr) process.stdout.write(c.red(String(err.stderr)))
+      if (!err?.stdout && !err?.stderr) process.stdout.write(c.red(String(err?.message ?? err)) + '\n')
+    }
+  }
+
+  private expandFileRefs(text: string): string {
+    const matches = [...text.matchAll(/(?:^|\s)@([\w./\\-]+)/g)]
+    if (!matches.length) return text
+
+    const blocks: string[] = []
+    let budget = 40_000
+
+    for (const match of matches.slice(0, 5)) {
+      const relative = match[1]!
+      const file = path.resolve(this.options.cwd, relative)
+
+      try {
+        if (budget <= 0) break
+        const content = fs.readFileSync(file, 'utf-8')
+        const slice = content.slice(0, Math.min(budget, 20_000))
+        budget -= slice.length
+        blocks.push(`\n<file path="${relative}">\n${slice}\n</file>`)
+      } catch {
+        // Missing files are left to the agent to discover.
+      }
+    }
+
+    return blocks.length ? `${text}\n${blocks.join('\n')}` : text
+  }
+
+  private listCommands(): void {
+    const commands = loadCommands(this.options.cwd)
+    if (!commands.length) {
+      process.stdout.write(c.dim('  no custom commands. add .eschaton/commands/<name>.md') + '\n')
+      return
+    }
+
+    process.stdout.write('\n')
+    for (const command of commands) {
+      process.stdout.write(`  ${c.cyan(`/${command.name}`.padEnd(18))} ${c.dim(command.description)}\n`)
+    }
+    process.stdout.write('\n')
   }
 
   private undo(): void {
@@ -512,6 +587,7 @@ export class TerminalUI {
       ['/model [name]', 'show or set the model for the active provider'],
       ['/providers [n]', 'list providers, or switch to number n'],
       ['/init', 'write an AGENTS.md for this project'],
+      ['/commands', 'list custom commands from .eschaton/commands'],
       ['/diff', 'show the working tree diff'],
       ['/undo', 'revert the last file the agent changed'],
       ['/compact', 'summarize the conversation to free context'],
@@ -529,6 +605,8 @@ export class TerminalUI {
     process.stdout.write(
       '\n' +
         c.dim('  Anything else is sent to the agent. End a line with \\ to continue on the next line.') +
+        '\n' +
+        c.dim('  @path adds a file to the prompt, !command runs a shell command.') +
         '\n' +
         c.dim('  Tool calls that write files or run commands ask for confirmation first.') +
         '\n\n',

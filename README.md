@@ -65,6 +65,23 @@ what changed.
 
 `Ctrl+C` cancels the running request. `--continue` resumes the last session in the directory.
 
+### Things that work like other terminal agents
+
+- **Project memory.** `ESCHATON.md`, `AGENTS.md` or `CLAUDE.md` in the project root is read at
+  startup and added to the system prompt. An existing `CLAUDE.md` keeps working as is.
+- **`@file`** in a prompt attaches the file's contents: `explain @src/auth.ts`.
+- **`!command`** runs a shell command and prints the output without involving the model.
+- **Custom commands.** Drop a markdown file in `.eschaton/commands/review.md` and it becomes
+  `/review`. `$ARGUMENTS` is replaced with whatever follows the command. `/commands` lists them.
+- **Print mode.** For scripts and CI:
+
+```bash
+eschaton -p "why does the build fail" --yes
+```
+
+  Without `--yes` the agent is limited to read-only tools, so it cannot edit files or run
+  commands unattended.
+
 ## How it works
 
 - **Native tool calling.** The agent sends `read_file`, `write_file`, `edit_file`, `run_command`,

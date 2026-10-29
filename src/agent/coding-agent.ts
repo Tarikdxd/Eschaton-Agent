@@ -16,6 +16,7 @@ import {
   type ToolSpec,
   type Usage,
 } from '../llm/providers.js'
+import { memoryBlock } from '../memory.js'
 
 const execAsync = promisify(exec)
 
@@ -169,7 +170,7 @@ Rules:
 - Paths are relative to the working directory.
 - Run the project's own test or build command after changing code, if one exists.
 - Never invent file contents. If something is unknown, read it.
-- Keep answers short. The terminal is not a document editor.`
+- Keep answers short. The terminal is not a document editor.${memoryBlock(cwd)}`
 }
 
 interface UndoEntry {

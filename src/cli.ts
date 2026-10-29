@@ -3,10 +3,10 @@ import { ProviderPool, providersFromSettings, listLocalModels, LOCAL_KINDS } fro
 import { loadSettings, saveSettings, CONFIG_FILE, maskKey } from './config.js'
 import { TerminalUI } from './ui/tui.js'
 import { startIde } from './ide/server.js'
-import { MODES, type Mode } from './agent/coding-agent.js'
+import { CodingAgent, MODES, type Mode } from './agent/coding-agent.js'
 import { c } from './ui/theme.js'
 
-export const VERSION = '3.1.0'
+export const VERSION = '3.2.0'
 
 const DEFAULT_PORT = 4123
 
@@ -42,6 +42,7 @@ Commands:
   (none)                    start the terminal agent in this directory
   ide [--port 4123]         open the browser IDE instead
   chat                      start the terminal agent (same as no command)
+  -p, --print "<prompt>"    run one prompt, print the answer and exit
   doctor                    show detected models and settings
   setup                     show how to connect a model
   login <provider> <key>    save a key: deepseek, openrouter, groq, custom
@@ -51,6 +52,7 @@ Options:
   --no-open                 do not open a browser
   -m, --model <name>        override the model for this session
   --mode <name>             build, plan, review or fast
+  --yes                     allow edits and commands without asking (-p only)
   -h, --help                show this help
   -v, --version             print the version
 `)
@@ -161,6 +163,47 @@ async function runIde(argv: string[]): Promise<number> {
   return 0
 }
 
+async function runPrint(prompt: string, argv: string[]): Promise<number> {
+  const model = flag(argv, '-m', '--model')
+  const mode = parseMode(flag(argv, '--mode'))
+  const yes = argv.includes('--yes')
+
+  const pool = new ProviderPool(providersFromSettings())
+  if (model) pool.setModel(model)
+  await pool.detectLocal()
+
+  if (!pool.list().length) {
+    process.stdout.write(setupText())
+    return 1
+  }
+
+  const agent = new CodingAgent(pool, process.cwd(), mode ?? 'Build')
+  let wrote = false
+
+  try {
+    const result = await agent.run(
+      prompt,
+      {
+        onToken: (token) => {
+          wrote = true
+          process.stdout.write(token)
+        },
+      },
+      {
+        approve: async () => yes,
+      },
+    )
+
+    if (!wrote && result.text) process.stdout.write(result.text)
+    process.stdout.write('\n')
+    return 0
+  } catch (err: any) {
+    if (wrote) process.stdout.write('\n')
+    process.stderr.write(`eschaton: ${err?.message ?? err}\n`)
+    return 1
+  }
+}
+
 async function runChat(argv: string[]): Promise<number> {
   const model = flag(argv, '-m', '--model')
   const mode = parseMode(flag(argv, '--mode'))
@@ -207,6 +250,16 @@ async function main(): Promise<number> {
   if (command === 'login') return runLogin(argv.slice(1))
   if (command === 'doctor') return runDoctor()
   if (command === 'chats' || command === 'chat') return runChat(argv.slice(1))
+
+  const printIndex = argv.findIndex((arg) => arg === '-p' || arg === '--print')
+  if (printIndex >= 0) {
+    const prompt = argv[printIndex + 1]
+    if (!prompt) {
+      process.stderr.write('usage: eschaton -p "<prompt>"\n')
+      return 1
+    }
+    return runPrint(prompt, argv)
+  }
 
   if (command === 'setup') {
     process.stdout.write(setupText())
