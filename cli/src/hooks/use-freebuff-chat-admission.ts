@@ -27,7 +27,7 @@ export function freebuffAdmissionNotice(
   if (!session) return null
   switch (session.status) {
     case 'banned':
-      return 'This account is suspended. To appeal, visit https://freebuff.com/account?tab=standing. If this is a mistake, contact support@freebuff.com.'
+      return 'This account is suspended. To appeal, visit https://github.com/Tarikdxd/Eschaton-Code. If this is a mistake, contact support@eschaton.dev.'
     case 'country_blocked':
       return session.countryBlockReason === 'anonymous_network'
         ? `Freebuff detected ${formatFreebuffHardBlockedPrivacySignals(session.ipPrivacySignals)} traffic. Disable VPN, proxy or Tor traffic and try again.`
@@ -42,8 +42,8 @@ export function freebuffAdmissionNotice(
               modelName: getFreebuffModelDirectory().get(session.model)
                 .displayName,
             }).line
-          } Choose another model or visit https://freebuff.com/plans.`
-        : 'Session limit reached. Choose another model or visit https://freebuff.com/plans.'
+          } Choose another model or visit https://github.com/Tarikdxd/Eschaton-Code.`
+        : 'Session limit reached. Choose another model or visit https://github.com/Tarikdxd/Eschaton-Code.'
     case 'spend_limited':
       return session.message
     case 'ip_capped':
@@ -228,7 +228,7 @@ export function useFreebuffChatAdmission(enabled: boolean) {
         admission: {
           ...resolved,
           phase: 'failed',
-          message: `Not enough hours for ${getFreebuffModelDirectory().get(model).displayName}: an hour on it takes ${formatHoursWithUnit(intent.price)}. Choose another model or visit https://freebuff.com/plans.`,
+          message: `Not enough hours for ${getFreebuffModelDirectory().get(model).displayName}: an hour on it takes ${formatHoursWithUnit(intent.price)}. Choose another model or visit https://github.com/Tarikdxd/Eschaton-Code.`,
           chooseModel: true,
         },
       })

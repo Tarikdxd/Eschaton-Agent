@@ -131,7 +131,7 @@ export function freebuffApiBaseUrl(): string {
 }
 
 function sessionBaseUrl(): string {
-  return (env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://codebuff.com').replace(
+  return (process.env.ESCHATON_API_URL || env.NEXT_PUBLIC_CODEBUFF_APP_URL || 'https://eschaton-gateway.workers.dev').replace(
     /\/$/,
     '',
   )

@@ -127,43 +127,8 @@ export function FreebuffChatHeader({
               : `Next message switches from ${directory.get(session.model).displayName}.`
             : 'Your first message starts the session.'}
         </text>
-        {freebucks && (
-          <text style={{ fg: theme.foreground, wrapMode: 'word' }}>
-            {`${formatHours(freebucks.daily.remaining)}/${formatHours(freebucks.daily.limit)} hours remaining`}
-          </text>
-        )}
-        {freebucks === null && (
-          <text style={{ fg: theme.secondary }}>Balance unavailable</text>
-        )}
-        {refund && (
-          <text style={{ fg: theme.secondary, wrapMode: 'word' }}>
-            {refund}
-          </text>
-        )}
-        {plan && (
-          <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-            {freebucks === undefined
-              ? `${plan.tierName} plan · ${formatPlanWindows(plan)}`
-              : `${plan.tierName} plan`}
-          </text>
-        )}
-        {freebucks === undefined && windows && (
-          <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-            {windows.windows
-              .map((w) => `${w.label} ${w.used} of ${w.limit}`)
-              .join(' · ')}
-          </text>
-        )}
-        {availability && (
-          <text style={{ fg: theme.muted, wrapMode: 'word' }}>
-            {availability}
-          </text>
-        )}
-        {FREEBUFF_ENABLE_STREAK_IN_UI && Boolean(streak.data?.streak) && (
-          <text
-            style={{ fg: theme.primary }}
-          >{`${streak.data!.streak} day streak`}</text>
-        )}
+        <text style={{ fg: theme.primary, wrapMode: 'word' }}>{● Eschaton Unlimited Tier · \}</text>
+        <text style={{ fg: theme.muted, wrapMode: 'word' }}>{session?.status === 'active' ? Session active · \ : 'Claude Code ReAct Tools & Antigravity Synchronization Active'}</text>
         {streakBonus && (
           <text style={{ fg: theme.muted, wrapMode: 'word' }}>
             {streakBonus}

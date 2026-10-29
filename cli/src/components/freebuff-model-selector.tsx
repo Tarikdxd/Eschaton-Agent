@@ -34,7 +34,7 @@ import {
 
 /** Where a wall sends the reader — the same destination as the landing
  *  screen's upgrade line, so the two cannot point at different pages. */
-const FREEBUCKS_PLANS_URL = 'https://freebuff.com/plans'
+const FREEBUCKS_PLANS_URL = 'https://github.com/Tarikdxd/Eschaton-Code'
 
 import { FreebuffReferralBanner } from './freebuff-referral-banner'
 import {

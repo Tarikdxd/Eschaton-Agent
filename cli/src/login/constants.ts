@@ -43,8 +43,8 @@ const LOGO_SMALL_CODEBUFF = `
   ╚═════╝ ╚═════╝
 `
 
-export const LOGO = IS_FREEBUFF ? FREEBUFF_WORDMARK : LOGO_CODEBUFF
-export const LOGO_SMALL = IS_FREEBUFF ? FREEBUFF_WORDMARK_COMPACT : LOGO_SMALL_CODEBUFF
+export const LOGO = FREEBUFF_WORDMARK
+export const LOGO_SMALL = FREEBUFF_WORDMARK_COMPACT
 
 // Shadow/border characters that receive the sheen animation effect
 export const SHADOW_CHARS = new Set([

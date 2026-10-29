@@ -1,0 +1,9 @@
+name = "eschaton-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-10-29"
+
+[vars]
+ENVIRONMENT = "production"
+ESCHATON_VERSION = "1.2.0"
+DEFAULT_MODEL = "deepseek/deepseek-v4-flash"
+ANTIGRAVITY_SUPPORT = "true"

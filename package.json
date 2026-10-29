@@ -1,7 +1,7 @@
 {
   "name": "@tarikdxd/eschaton-code",
-  "version": "1.2.0",
-  "description": "Eschaton Code - OpenCode / Freebuff Terminal AI Coding Assistant powered by Claude Code Engine and Antigravity Ecosystem",
+  "version": "1.2.1",
+  "description": "Eschaton Code - Sovereign OpenCode Terminal AI Coding Assistant powered by Claude Code Engine and Antigravity Ecosystem",
   "type": "module",
   "bin": {
     "eschaton": "./bin/eschaton.js",
@@ -16,6 +16,7 @@
     "agents",
     "sdk",
     "freebuff",
+    "server",
     "README.md",
     "LICENSE"
   ],

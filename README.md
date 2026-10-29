@@ -3,20 +3,20 @@
 <div align="center">
 
 ```
-███████████                        ██                 ▄████  ▄██
-███▀▀▀▀▀▀▀▀                        ██                 ██    ██▀
-███ █████  ██████ ▄█████   ▄████▄  ██████▄  ██   ██ ████████████
-███ ███▀▀  ██▀   ███▄▄▄██ ██▄▄▄███ ██   ▀██ ██   ██   ██    ██
-███ ███    ███   ███▀▀▀▀▀ ██▀▀▀▀▀  ██▄  ▄██ ██▄  ██   ██    ██
-███ ██▀    ██▀    ▀█████   ▀████▀  ██████▀   ▀████▀   ██    ██
+███████ ███████  ██████ ██   ██  █████  ████████  ██████  ███    ██
+██      ██      ██      ██   ██ ██   ██    ██    ██    ██ ████   ██
+█████   ███████ ██      ███████ ███████    ██    ██    ██ ██ ██  ██
+██           ██ ██      ██   ██ ██   ██    ██    ██    ██ ██  ██ ██
+███████ ███████  ██████ ██   ██ ██   ██    ██     ██████  ██   ████
 ```
 
-**Next-Generation OpenCode & Freebuff Terminal AI Assistant**  
-*Powered by Freebuff Core 0.2.34, Claude Code Tool Architecture & Native Antigravity Ecosystem*
+**Sovereign Terminal AI Coding Assistant & Autonomous Agent Runtime**  
+*Powered by Native OpenCode Engine, Claude Code Tool Architecture & Google Antigravity Ecosystem*
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/Tarikdxd/Eschaton-Code)
-[![Antigravity](https://img.shields.io/badge/Antigravity-Integrated-purple.svg)](https://github.com/Tarikdxd/Eschaton-Code)
+[![Antigravity](https://img.shields.io/badge/Antigravity-Synchronized-purple.svg)](https://github.com/Tarikdxd/Eschaton-Code)
+[![DeepSeek](https://img.shields.io/badge/DeepSeek-V4.1%20Flash%20Free-green.svg)](https://github.com/Tarikdxd/Eschaton-Code)
 [![Claude Code](https://img.shields.io/badge/Engine-Claude%20Code%20Core-orange.svg)](https://github.com/Tarikdxd/Eschaton-Code)
 
 </div>
@@ -25,41 +25,43 @@
 
 ## 🚀 Quick Start & Installation
 
-Install globally directly from GitHub via npm:
+Install globally directly via npm:
 
 ```bash
-npm install -g https://github.com/Tarikdxd/Eschaton-Code
+npm install -g https://github.com/Tarikdxd/Eschaton-Code/releases/download/v1.2.1/tarikdxd-eschaton-code-1.2.1.tgz
 ```
 
-Once installed, simply run anywhere:
+*(or install from repo root: `npm install -g .`)*
+
+### Launching Eschaton Code
+Once installed, simply type anywhere in your terminal:
 
 ```bash
 eschaton
 ```
-*(or run `freebuff` / `opencode`)*
-
-### Instant Zero-Install Launch
-You can also run instantly without installation using `npx`:
-
-```bash
-npx https://github.com/Tarikdxd/Eschaton-Code
-```
+*(aliases: `freebuff`, `opencode`)*
 
 ---
 
-## 🌟 Key Features
+## 🌟 Key Architecture & Features
 
-### 🖥️ 1. Exact High-Fidelity OpenCode / Freebuff TUI
-- **Full Terminal App:** Alternate screen buffer, box-drawing styling, and zero-flicker rendering.
-- **Top Header Status:** Real-time model badge, git branch, directory status, and active token counters.
-- **Interactive Multi-Line Editor:** Cursor navigation, auto-expanding text box, syntax highlighting, and slash command autocompletion (`/`).
-- **Real-Time Diff Viewer:** Highlighting line insertions (`+` green) and deletions (`-` red) with line numbers.
-- **Collapsible Thinking Accordion:** Expandable agent internal reasoning with elapsed timer.
-- **Interactive Model Selector:** Switch on the fly between MiMo v2.6, GLM 5.3 Flash, DeepSeek V4.1, GPT-6, Gemini 3.8 Flash, and more.
+### 🖥️ 1. Native High-Fidelity Terminal Interface
+- **Alternate Screen Buffer:** Preserves your terminal scrollback on exit, zero-flicker box-drawing UI.
+- **Top Header Status:** Displays current model, connected Antigravity session UUID, active workspace directory, and engine badges.
+- **Interactive Multi-Line Editor:** Cursor navigation, history navigation (`↑` / `↓`), syntax highlighting, and slash command autocompletion (`/`).
+- **Interactive Model Picker (`Ctrl+O` / `/model`):**
+  - **DeepSeek V4.1 Flash** (Fast coding, free and unlimited)
+  - **DeepSeek V4.1 Flash Fast** (Parallel subagent context gathering)
+  - **GLM 5.3 Flash** (Deep reasoning and multi-step planning)
+  - **MiMo 2.6 Pro** (Multimodal vision and reasoning)
+  - **Claude 3.7 Sonnet** (Full Claude Code toolset)
+  - **GPT-6 Luna** (All-around coding)
+- **Real-Time Diff Viewer:** Instant line deletions (`-` red) and additions (`+` green) previewing agent edits.
+- **Collapsible Thinking Accordion:** Real-time animated spinner tracking agent reasoning steps and time elapsed.
 
-### ⚛️ 2. First-Class Native Antigravity Authentication
-- **Auto-Detection:** Automatically discovers your local `~/.gemini/antigravity` environment, installation UUID, and brain storage.
-- **Session Linking:** Pass `--antigravity` or run `eschaton auth` to inspect your connected session:
+### ⚛️ 2. First-Class Antigravity Synchronization
+- **Auto-Discovery:** Automatically detects local `~/.gemini/antigravity` environment (`installation_id`, brain storage).
+- **Session Linking:** Pass `--antigravity` or run `eschaton auth`:
   ```bash
   eschaton auth
   ```
@@ -74,54 +76,45 @@ npx https://github.com/Tarikdxd/Eschaton-Code
   └─────────────────────────────────────────────────────────────┘
   ```
 
-### 🧠 3. Claude Code Agent Engine
-- **Tool Architecture:** Implements the complete ReAct tool set (`bash`, `read_file`, `str_replace` diff editor, `write_file`, `glob`, `grep`, and `list_dir`).
-- **Parallel Subagents:** Autonomous task planning, codebase indexation, and multi-file code editing.
+### ☁️ 3. Cloudflare Edge Gateway & Web Platform
+- Located at [`server/gateway/`](./server/gateway), deployable directly to Cloudflare Workers with `wrangler deploy`.
+- Serves an interactive Cyberpunk Web Dashboard and Edge REST endpoints for session telemetry, models, and AI completions.
+- Provides fallback local gateway server on `http://127.0.0.1:38421`.
+
+### 🧠 4. Claude Code Tool Engine
+- Production-grade autonomous tools:
+  - `/run <command>`: Shell command runner with live stdout/stderr capture and exit code badge.
+  - `/read <path>`: File inspector and context loader.
+  - String replacement diff engine with hunk formatting.
+  - Multi-file code editor with automatic rollback on syntax error.
 
 ---
 
-## 🛠️ CLI Usage & Options
+## 🛠️ Commands & Keyboard Shortcuts
 
-```bash
-Usage: eschaton [options] [command]
-
-Commands:
-  login                         Authenticate with your Freebuff / Codebuff account
-  auth, --antigravity           Inspect Antigravity session status & local brain sync
-
-Options:
-  -v, --version                 Print version information
-  --continue [conversation-id]  Continue from a previous conversation
-  --cwd <directory>             Set the working directory (default: current directory)
-  --trust-agents                Load repository's .agents files and mcp.json without prompt
-  -h, --help                    Show this help message
-```
+| Shortcut / Command | Action |
+| :--- | :--- |
+| `[Enter]` | Submit prompt or execute command |
+| `[Ctrl+O]` / `/model` | Open interactive model picker menu |
+| `[/]` | Open slash command palette |
+| `[↑]` / `[↓]` | Cycle previous prompt history |
+| `[Ctrl+C]` / `/exit` | Cleanly exit and restore terminal |
+| `/run <command>` | Execute terminal command with ReAct runner |
+| `/read <file>` | Inspect file contents into memory |
+| `/auth` | View Antigravity connection status |
+| `/clear` | Clear conversation history |
 
 ---
 
-## 📁 Repository Architecture
+## 📁 Repository Structure
 
-This repository contains the complete OpenCode / Freebuff monorepo source code:
-
-- `cli/`: OpenTUI and React terminal user interface implementation.
-- `common/`: Core shared utilities, model catalog definitions, and types.
-- `agents/`: Autonomous coding agents and agent configurations.
-- `packages/`: Agent runtime, code mapping, and LLM provider drivers.
-- `sdk/`: Client SDK for programmatically integrating the agent runtime.
-- `freebuff/`: Extended web & cloud distribution assets.
-- `bin/`: Cross-platform launcher with zero-dependency auto-extractor and Antigravity bridge.
-
----
-
-## 🤝 Contributing
-
-Contributions are warmly welcomed! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md) to learn about our agent guidelines and architecture.
-
-```bash
-git clone https://github.com/Tarikdxd/Eschaton-Code.git
-cd Eschaton-Code
-bun install
-```
+- `bin/`: Sovereign native Eschaton TUI engine and CLI launchers.
+- `server/gateway/`: Cloudflare Worker API gateway and HTML web platform.
+- `cli/`: OpenTUI & React component definitions and theme configurations.
+- `common/`: Core model definitions, types, and session protocols.
+- `agents/`: Autonomous agent definitions and benchmarks.
+- `packages/`: Agent runtime, code-map, and LLM provider drivers.
+- `sdk/`: SDK for programmatic integration.
 
 ---
 

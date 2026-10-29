@@ -1,6 +1,5 @@
 /**
- * Prod origin of the freebuff.com web app (marketing site + browser sign-in).
- * The CLI and Freebuff Desktop both send users here for the device-code login
- * flow; sharing the literal keeps their prod defaults from drifting.
+ * Prod origin of the Eschaton Code ecosystem.
  */
-export const FREEBUFF_WEB_URL_PROD = 'https://freebuff.com'
+export const FREEBUFF_WEB_URL_PROD = 'https://github.com/Tarikdxd/Eschaton-Code'
+export const ESCHATON_GATEWAY_URL_PROD = 'https://eschaton-gateway.workers.dev'

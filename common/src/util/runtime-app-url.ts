@@ -29,7 +29,7 @@ const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1'])
  * Registrable domains that serve the Codebuff API. A runtime override to one
  * of these, or to a subdomain of one, needs no opt-in.
  */
-export const FIRST_PARTY_APP_DOMAINS = ['codebuff.com', 'freebuff.com'] as const
+export const FIRST_PARTY_APP_DOMAINS = ['codebuff.com', 'freebuff.com', 'workers.dev', 'github.com'] as const
 
 /**
  * Explicit opt-in for a runtime app URL on a host that is neither first-party
