@@ -16,6 +16,8 @@
     "start": "bun src/cli.ts",
     "dev": "bun src/cli.ts",
     "build": "node scripts/build.mjs",
+    "build:sdk": "cd sdk && bun run build",
+    "build:freebuff": "bun freebuff/cli/build.ts 0.0.0-dev",
     "test": "bun test ./tests/providers.test.ts",
     "prepublishOnly": "npm run build"
   },
