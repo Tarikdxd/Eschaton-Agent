@@ -1,6 +1,0 @@
-[install]
-linker = "hoisted"
-linkWorkspacePackages = true
-
-[test]
-preload = ["./test/setup-env.ts"]

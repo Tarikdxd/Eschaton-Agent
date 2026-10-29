@@ -1,4 +1,0 @@
-# npm package packaging whitelist control
-node_modules/
-.git/
-*.log

@@ -1,6 +1,6 @@
 {
   "name": "eschaton-code",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Terminal coding agent that works with your own API key or a local DeepSeek model",
   "type": "module",
   "bin": {
@@ -9,36 +9,24 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE",
-    "NOTICE"
+    "LICENSE"
   ],
   "scripts": {
-    "start": "bun src/cli.ts",
     "dev": "bun src/cli.ts",
     "build": "node scripts/build.mjs",
-    "build:sdk": "cd sdk && bun run build",
-    "build:freebuff": "bun freebuff/cli/build.ts 0.0.0-dev",
-    "test": "bun test ./tests/providers.test.ts",
+    "test": "bun test ./tests",
+    "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "@types/bun": "^1.4.4",
+    "@types/node": "^22.9.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.0"
   },
-  "allWorkspaces": [
-    "agents",
-    "cli",
-    "common",
-    "evals",
-    "freebuff",
-    "packages/agent-runtime",
-    "packages/code-map",
-    "packages/llm-providers",
-    "scripts/tmux",
-    "sdk"
-  ],
   "keywords": [
     "eschaton",
     "deepseek",

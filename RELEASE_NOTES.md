@@ -1,21 +1,29 @@
 # Release notes
 
+## 2.1.0
+
+Repository cleanup. The package itself behaves the same as 2.0.1.
+
+- Removed the Codebuff and Freebuff sources that the CLI never imported. The repository now
+  contains only the CLI, its tests and the build script.
+- Removed the leftover workspace configuration, the SDK build scripts and the issue templates
+  that pointed at another project.
+- Added `typecheck` and a minimal `tsconfig.json` with `strict` enabled.
+- `dist/eschaton.js` is committed so the published package and a git install both ship a working
+  binary.
+
+## 2.0.1
+
+- Published the package as `eschaton-code` with a working `eschaton` command.
+- Fixed the repository URL format npm expected.
+
 ## 2.0.0
 
-The CLI now talks to providers you choose directly. The quota trick and the custom gateway are
-gone, along with the code that generated device identities.
-
-- New provider layer in `src/llm/providers.ts`: DeepSeek, OpenRouter, Groq, any
-  OpenAI-compatible endpoint, plus local Ollama and LM Studio detected at startup.
+- New provider layer: DeepSeek, OpenRouter, Groq, any OpenAI-compatible endpoint, plus local
+  Ollama and LM Studio detected at startup.
 - `eschaton login <provider> <key>` saves a key to `~/.eschaton/config.json`.
-- New agent loop in `src/agent/coding-agent.ts` with four modes and a 25 step limit.
-- Simpler terminal interface in `src/ui/tui.ts`.
-- The package is now unscoped (`eschaton-code`) and builds a single file with esbuild, so
-  `npm install -g eschaton-code` works once published.
+- New agent loop with four modes and a 25 step limit.
+- Simpler terminal interface.
 
-Removed:
-
-- `src/auth/session-rotator.ts`, which rotated device keys and reported a quota reset without
-  contacting a backend.
-- `/refresh`, `/auth` and the `opencode`/`freebuff` command aliases.
-- The `eschaton-gateway.workers.dev` endpoint, which never resolved.
+Removed: the device identity rotation, the `/refresh` quota claim, the custom gateway, and the
+`opencode`/`freebuff` command aliases.

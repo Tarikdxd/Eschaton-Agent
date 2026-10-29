@@ -3,7 +3,7 @@ import { ProviderPool, providersFromSettings } from './llm/providers.js'
 import { loadSettings, saveSettings, CONFIG_FILE } from './config.js'
 import { TerminalUI } from './ui/tui.js'
 
-export const VERSION = '2.0.1'
+export const VERSION = '2.1.0'
 
 const SETUP = `
 Eschaton Code needs a model. Pick one:
