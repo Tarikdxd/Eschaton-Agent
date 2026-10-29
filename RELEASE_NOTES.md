@@ -1,19 +1,21 @@
 # Release notes
 
-## 1.3.0
+## 2.0.0
 
-- Terminal interface with four modes (`Build`, `Plan`, `Review`, `Fast`) and streaming tool
-  output.
-- Provider list for DeepSeek models with failover when a provider returns an error.
-- File and shell tools for editing and running commands.
+The CLI now talks to providers you choose directly. The quota trick and the custom gateway are
+gone, along with the code that generated device identities.
 
-Known issues in this release:
+- New provider layer in `src/llm/providers.ts`: DeepSeek, OpenRouter, Groq, any
+  OpenAI-compatible endpoint, plus local Ollama and LM Studio detected at startup.
+- `eschaton login <provider> <key>` saves a key to `~/.eschaton/config.json`.
+- New agent loop in `src/agent/coding-agent.ts` with four modes and a 25 step limit.
+- Simpler terminal interface in `src/ui/tui.ts`.
+- The package is now unscoped (`eschaton-code`) and builds a single file with esbuild, so
+  `npm install -g eschaton-code` works once published.
 
-- `/refresh` does not renew a quota. It writes a new local device key and reports success
-  without contacting a live backend.
-- The first provider points at `eschaton-gateway.workers.dev`, which does not resolve.
-- The package is not published to npm.
+Removed:
 
-## Earlier releases
-
-See the repository history.
+- `src/auth/session-rotator.ts`, which rotated device keys and reported a quota reset without
+  contacting a backend.
+- `/refresh`, `/auth` and the `opencode`/`freebuff` command aliases.
+- The `eschaton-gateway.workers.dev` endpoint, which never resolved.

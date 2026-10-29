@@ -1,54 +1,46 @@
 # Eschaton Code
 
-A terminal coding agent for people who want to start working without an API key.
+A terminal coding agent. Point it at your own API key or at a model running on your machine,
+then describe what you want and it reads, edits and runs code in the current directory.
 
-Eschaton Code is built on [Codebuff](https://github.com/CodebuffAI/codebuff) and bundles the
-Freebuff CLI. On top of that it adds a terminal interface, a router for DeepSeek models, and a
-set of file and shell tools the agent can call while it works in your project directory.
+There is no account, no hosted backend and no quota system. The agent talks directly to the
+provider you choose.
 
-**Status: early.** The interface and the tool loop run. The provider router is incomplete and
-the project is not published to npm yet. See [Current limitations](#current-limitations) before
-you install it.
-
-## What works
-
-- `eschaton` starts a session in the current directory.
-- Streaming responses with tool-call output.
-- File tools: read, write, edit, list, search.
-- Shell tool for builds, tests and git commands.
-- Four modes, cycled with `Tab`: Build, Plan, Review, Fast.
-
-## Current limitations
-
-- **No published package.** `npm install -g eschaton-code` does not work yet. Use the source
-  install below.
-- **The provider router is unfinished.** `/refresh` does not renew a quota. It writes a new
-  local device key and reports success without contacting a live backend, so treat it as a
-  no-op.
-- **The default gateway does not exist.** `eschaton-gateway.workers.dev` does not resolve, so
-  the first provider in the pool always falls through to the next one.
-- **The OpenRouter and SiliconFlow entries need your own keys.** The built-in placeholder
-  values are rejected by both services.
-
-## Requirements
-
-- Node.js 22.18 or newer (the CLI runs the TypeScript sources directly)
-- git
-
-## Install from source
+## Install
 
 ```bash
-git clone https://github.com/Tarikdxd/Eschaton-Code.git
-cd Eschaton-Code
-npm install
-node bin/eschaton.js
+npm install -g eschaton-code
 ```
 
-To get an `eschaton` command on your PATH:
+Requires Node.js 20 or newer.
+
+## Connect a model
+
+Either a hosted provider with your own key:
 
 ```bash
-npm install -g .
+export DEEPSEEK_API_KEY=sk-...        # DeepSeek platform
+export OPENROUTER_API_KEY=sk-or-...   # OpenRouter
+export GROQ_API_KEY=gsk_...           # Groq
 ```
+
+or a local server, which needs no key:
+
+```bash
+ollama pull deepseek-r1:7b
+```
+
+LM Studio works too: load a model, start the local server, and Eschaton Code finds it on port
+1234. Local servers are detected on startup.
+
+To save a key once instead of exporting it:
+
+```bash
+eschaton login openrouter sk-or-...
+```
+
+That writes `~/.eschaton/config.json` with mode 0600. Environment variables take precedence over
+the file.
 
 ## Usage
 
@@ -57,52 +49,87 @@ cd ~/my-project
 eschaton
 ```
 
-Type a request and press Enter. `Tab` switches mode. `/exit` or `Ctrl+C` leaves the session.
+```
+› explain how the auth middleware works
+› add a test for the token refresh path
+› why does the build fail on Windows
+```
+
+In a session:
+
+| Command | Description |
+| --- | --- |
+| `/help` | List commands |
+| `/mode [name]` | `build`, `plan`, `review` or `fast`; cycles when no name is given |
+| `/model [name]` | Show or change the model for the active provider |
+| `/providers [n]` | List providers, or switch to one |
+| `/clear` | Forget the conversation |
+| `/exit` | Leave |
+
+Modes change the instructions the agent works under. `Build` edits and runs code, `Plan` and
+`Review` are read-only, `Fast` answers with as few tool calls as possible.
+
+The agent can read and write files, run shell commands, list directories and search code. It
+asks for one tool call at a time and feeds the result back into the conversation.
+
+## Providers
+
+| Provider | Key variable | Default model |
+| --- | --- | --- |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat` |
+| OpenRouter | `OPENROUTER_API_KEY` | `deepseek/deepseek-chat-v3-0324:free` |
+| Groq | `GROQ_API_KEY` | `deepseek-r1-distill-llama-70b` |
+| Ollama | none | first installed model, DeepSeek preferred |
+| LM Studio | none | first loaded model, DeepSeek preferred |
+| Any OpenAI-compatible endpoint | `OPENAI_API_KEY` + `OPENAI_BASE_URL` | `OPENAI_MODEL` |
+
+Set `ESCHATON_MODEL` to override the model used for a hosted provider. When a provider returns an
+error or a rate limit, the next one is tried and the failing provider is skipped for a minute.
+
+Free tiers have their own limits. If a provider returns HTTP 429, that is the provider's quota,
+not something this tool can reset.
 
 ## Configuration
 
 | Variable | Purpose |
 | --- | --- |
-| `ESCHATON_API_URL` | Base URL of your own OpenAI-compatible gateway |
-| `OPENROUTER_API_KEY` | Key for the OpenRouter free-tier DeepSeek models |
-| `SILICONFLOW_API_KEY` | Key for SiliconFlow's serverless DeepSeek models |
+| `DEEPSEEK_API_KEY` | DeepSeek platform key |
+| `OPENROUTER_API_KEY` | OpenRouter key |
+| `GROQ_API_KEY` | Groq key |
+| `OPENAI_BASE_URL` | Base URL of any OpenAI-compatible endpoint |
+| `OPENAI_API_KEY` | Key for that endpoint |
+| `OPENAI_MODEL` | Model name for that endpoint |
+| `ESCHATON_MODEL` | Overrides the model of the selected provider |
+| `NO_COLOR` | Disables ANSI colours |
 
-With no variables set, the agent tries the providers in the order defined in
-`src/llm/deepseek-pool.ts` and skips the ones that fail.
+Local endpoints probed at startup:
 
-## Project layout
-
-```
-bin/        CLI entry points
-src/ui/     terminal interface
-src/llm/    provider pool and routing
-src/auth/   device identity helpers
-agents/     agent definitions and evaluation harnesses
-sdk/        Codebuff SDK
-freebuff/   Freebuff CLI sources
-```
+- Ollama: `http://127.0.0.1:11434/v1`
+- LM Studio: `http://127.0.0.1:1234/v1`
 
 ## Development
 
-The workspace uses Bun for builds and tests:
+The CLI sources are TypeScript and the published bundle is built with esbuild.
 
 ```bash
-bun install
-bun test
-bun run build
+npm install
+npm run dev              # bun src/cli.ts
+npm test                 # provider and agent tests
+npm run build            # writes dist/eschaton.js
 ```
+
+## Limitations
+
+- Tool calls are parsed from JSON blocks in the model output. Weak models sometimes emit
+  malformed JSON, in which case the agent reports the parse failure instead of guessing.
+- The agent keeps a single conversation in memory; there is no session persistence yet.
+- Complex refactors across many files are better handled by the larger hosted models.
 
 ## Relationship to upstream
 
 This repository contains code derived from the Codebuff project; see [NOTICE](NOTICE). Freebuff
 sources live under `freebuff/`. Eschaton Code is an independent fork and is not affiliated with
 Codebuff, OpenCode or DeepSeek.
-
-## Roadmap
-
-- Publish the CLI as an unscoped npm package so `npm install -g eschaton-code` works.
-- Replace the placeholder gateway with a real endpoint that serves free DeepSeek Flash models.
-- Remove the `/refresh` path or implement it against an API that actually supports quota resets.
 
 ## License
 
