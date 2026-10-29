@@ -8,7 +8,7 @@
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { ProviderPool, providersFromSettings, type ChatMessage } from '../llm/providers.js'
 import { CodingAgent, type Mode, type ToolPreview } from '../agent/coding-agent.js'
@@ -53,6 +53,20 @@ export async function startIde(options: IdeOptions): Promise<{ url: string; clos
       else res.end()
     })
   })
+
+  function runGit(args: string[]): Promise<{ code: number; out: string; err: string }> {
+    return new Promise((resolve) => {
+      execFile(
+        'git',
+        args,
+        { cwd: root, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+        (error, stdout, stderr) => {
+          const code = error ? (typeof (error as any).code === 'number' ? (error as any).code : 1) : 0
+          resolve({ code, out: String(stdout ?? ''), err: String(stderr ?? '') })
+        },
+      )
+    })
+  }
 
   async function handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1')
@@ -127,6 +141,123 @@ export async function startIde(options: IdeOptions): Promise<{ url: string; clos
       return sendJson(res, 200, { ok: true })
     }
 
+    if (route === '/api/file' && req.method === 'POST') {
+      const body = await readJson<{ path: string; dir?: boolean }>(req)
+      const target = safePath(root, body.path)
+      if (!target) return sendJson(res, 400, { error: 'path outside the workspace' })
+      if (fs.existsSync(target)) return sendJson(res, 409, { error: 'already exists' })
+
+      if (body.dir) {
+        fs.mkdirSync(target, { recursive: true })
+      } else {
+        fs.mkdirSync(path.dirname(target), { recursive: true })
+        fs.writeFileSync(target, '', 'utf-8')
+      }
+      return sendJson(res, 200, { ok: true })
+    }
+
+    if (route === '/api/file' && req.method === 'DELETE') {
+      const target = safePath(root, url.searchParams.get('path') ?? '')
+      if (!target || target === root) return sendJson(res, 400, { error: 'path outside the workspace' })
+      if (!fs.existsSync(target)) return sendJson(res, 404, { error: 'not found' })
+      fs.rmSync(target, { recursive: true, force: true })
+      return sendJson(res, 200, { ok: true })
+    }
+
+    if (route === '/api/rename' && req.method === 'POST') {
+      const body = await readJson<{ from: string; to: string }>(req)
+      const from = safePath(root, body.from)
+      const to = safePath(root, body.to)
+      if (!from || !to) return sendJson(res, 400, { error: 'path outside the workspace' })
+      if (!fs.existsSync(from)) return sendJson(res, 404, { error: 'not found' })
+      if (fs.existsSync(to)) return sendJson(res, 409, { error: 'target already exists' })
+      fs.mkdirSync(path.dirname(to), { recursive: true })
+      fs.renameSync(from, to)
+      return sendJson(res, 200, { ok: true })
+    }
+
+    if (route === '/api/search') {
+      const query = (url.searchParams.get('q') ?? '').trim()
+      if (!query) return sendJson(res, 200, { results: [] })
+
+      const results: Array<{ path: string; line: number; text: string }> = []
+      const files: string[] = []
+      walk(root, files)
+
+      for (const relative of files) {
+        if (results.length >= 200) break
+        const file = path.join(root, relative)
+        try {
+          if (fs.statSync(file).size > 512 * 1024) continue
+          const content = fs.readFileSync(file, 'utf-8')
+          if (content.includes('\u0000')) continue
+          content.split('\n').forEach((text, index) => {
+            if (results.length < 200 && text.toLowerCase().includes(query.toLowerCase())) {
+              results.push({ path: relative, line: index + 1, text: text.trim().slice(0, 200) })
+            }
+          })
+        } catch {
+          // Unreadable file.
+        }
+      }
+
+      return sendJson(res, 200, { results })
+    }
+
+    if (route === '/api/git/status') {
+      const { code, out } = await runGit(['status', '--porcelain=v1', '-b'])
+      if (code !== 0) return sendJson(res, 200, { isRepo: false })
+
+      const lines = out.split('\n').filter(Boolean)
+      const header = lines.shift() ?? ''
+      const branch = header.replace(/^##\s*/, '').split('...')[0]?.split(' ')[0] ?? 'HEAD'
+      const ahead = Number(header.match(/ahead (\d+)/)?.[1] ?? 0)
+      const behind = Number(header.match(/behind (\d+)/)?.[1] ?? 0)
+
+      const files = lines.map((line) => {
+        const index = line[0] ?? ' '
+        const work = line[1] ?? ' '
+        const file = line.slice(3).trim()
+        const status = index !== ' ' && index !== '?' ? index : work
+        return { path: file, status, staged: index !== ' ' && index !== '?' }
+      })
+
+      return sendJson(res, 200, { isRepo: true, branch, ahead, behind, files })
+    }
+
+    if (route === '/api/git/diff') {
+      const file = url.searchParams.get('path') ?? ''
+      const staged = url.searchParams.get('staged') === '1'
+      const args = staged ? ['diff', '--cached', '--', file] : ['diff', '--', file]
+      const { out } = await runGit(args)
+      return sendJson(res, 200, { diff: out })
+    }
+
+    if (route === '/api/git/stage' && req.method === 'POST') {
+      const body = await readJson<{ path: string; staged: boolean }>(req)
+      const args = body.staged ? ['add', '--', body.path] : ['restore', '--staged', '--', body.path]
+      const { code, err } = await runGit(args)
+      return sendJson(res, code === 0 ? 200 : 500, { ok: code === 0, error: err })
+    }
+
+    if (route === '/api/git/commit' && req.method === 'POST') {
+      const body = await readJson<{ message: string }>(req)
+      if (!body.message?.trim()) return sendJson(res, 400, { error: 'empty message' })
+      const { code, out, err } = await runGit(['commit', '-m', body.message])
+      return sendJson(res, code === 0 ? 200 : 500, { ok: code === 0, output: out + err })
+    }
+
+    if (route === '/api/git/branches') {
+      const { out } = await runGit(['branch', '--format=%(refname:short)'])
+      return sendJson(res, 200, { branches: out.split('\n').filter(Boolean) })
+    }
+
+    if (route === '/api/git/sync' && req.method === 'POST') {
+      const pull = await runGit(['pull', '--rebase', '--autostash'])
+      const push = await runGit(['push'])
+      return sendJson(res, 200, { output: [pull.out, pull.err, push.out, push.err].filter(Boolean).join('\n') })
+    }
+
     if (route === '/api/model' && req.method === 'POST') {
       const body = await readJson<{ model: string }>(req)
       pool.setModel(body.model)
@@ -164,7 +295,7 @@ export async function startIde(options: IdeOptions): Promise<{ url: string; clos
     }
 
     if (route === '/api/chat' && req.method === 'POST') {
-      const body = await readJson<{ sessionId?: string; message: string; mode?: Mode }>(req)
+      const body = await readJson<{ sessionId?: string; message: string; mode?: Mode; autoApprove?: boolean }>(req)
       return chat(res, body)
     }
 
@@ -180,7 +311,7 @@ export async function startIde(options: IdeOptions): Promise<{ url: string; clos
 
   async function chat(
     res: http.ServerResponse,
-    body: { sessionId?: string; message: string; mode?: Mode },
+    body: { sessionId?: string; message: string; mode?: Mode; autoApprove?: boolean },
   ): Promise<void> {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -210,7 +341,7 @@ export async function startIde(options: IdeOptions): Promise<{ url: string; clos
         body.message,
         {
           onToken: (text) => emit(res, { type: 'token', text }),
-          onToolStart: (call, preview) => emit(res, { type: 'tool', name: call.tool, preview: publicPreview(preview) }),
+          onToolStart: (call, preview) => emit(res, { type: 'tool', name: call.name, preview: publicPreview(preview) }),
           onToolEnd: (toolResult) =>
             emit(res, {
               type: 'tool_end',
@@ -221,7 +352,9 @@ export async function startIde(options: IdeOptions): Promise<{ url: string; clos
         },
         {
           signal: controller.signal,
-          approve: (call, preview) => askApproval(res, approvals, call.tool, publicPreview(preview)),
+          approve: body.autoApprove
+            ? undefined
+            : (call, preview) => askApproval(res, approvals, call.name, publicPreview(preview)),
         },
       )
 

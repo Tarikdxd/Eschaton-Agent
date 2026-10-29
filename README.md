@@ -1,12 +1,11 @@
-# Eschaton
+# Eschaton Code
 
-A light IDE that runs in your browser and ships with a coding agent.
+A coding agent that runs in your terminal. Describe what you want, it reads the repository,
+edits files and runs the tests.
 
-It is not a VS Code fork. The editor is Monaco, the same component VS Code uses, wrapped in a
-small local server with a file tree, tabs, a terminal and a chat panel that can read and edit
-your project. The whole thing is a few megabytes and starts in a second.
-
-![Eschaton](docs/screenshot.png)
+It uses native tool calling, so the model decides when to read a file or run a command instead of
+emitting a block of JSON that has to be parsed. Works with a free-tier key or a model running on
+your machine. There is no subscription and no hosted backend.
 
 ## Install
 
@@ -16,101 +15,121 @@ npm install -g eschaton-code
 
 Requires Node.js 20 or newer.
 
-## Run
+## Free setup
+
+Any one of these is enough. No card required for the free tiers.
+
+```bash
+eschaton login openrouter sk-or-...   # free DeepSeek / Qwen models
+eschaton login gemini AIza...         # free Gemini Flash tier
+eschaton login groq gsk_...           # free Llama / DeepSeek distills
+```
+
+Or run a model locally, no account at all:
+
+```bash
+ollama pull deepseek-r1:7b
+```
+
+Ollama and LM Studio are detected at startup. `eschaton doctor` shows what is wired up.
+
+## Usage
 
 ```bash
 cd ~/my-project
 eschaton
 ```
 
-That starts a server on `http://127.0.0.1:4123` and opens it in your browser. Everything runs on
-your machine; there is no account and no hosted service.
-
 ```
-eschaton --port 5000      # another port
-eschaton --no-open        # do not open a browser
-eschaton chat             # terminal interface instead of the IDE
+› add a test for the token refresh path
+› why does the build fail on Windows
+› rename the fetchUser helper and update its callers
 ```
 
-Stop the server with `Ctrl+C`.
+The agent reads files, shows a diff before writing, asks before running a command, and reports
+what changed.
 
-## Connect a model
-
-Either a hosted provider with your own key:
-
-```bash
-eschaton login openrouter sk-or-...
-eschaton login deepseek sk-...
-eschaton login groq gsk_...
-```
-
-or a local server, which needs no key:
-
-```bash
-ollama pull deepseek-r1:7b
-```
-
-Ollama (`127.0.0.1:11434`) and LM Studio (`127.0.0.1:1234`) are detected at startup. Run
-`eschaton doctor` to see what is available.
-
-## Inside the editor
-
-- **Explorer**: the workspace tree, folders expand in place.
-- **Tabs**: click a file to open it, the dot means unsaved changes.
-- **Terminal**: runs shell commands in the workspace and streams the output.
-- **Assistant**: chat with the agent. It reads files, edits them and runs commands, showing a
-  diff before a change and asking for approval.
-
-| Shortcut | Action |
+| Command | What it does |
 | --- | --- |
-| `Ctrl+P` | Quick open a file |
-| `Ctrl+S` | Save |
-| `Ctrl+`` ` | Toggle the terminal |
-| `Ctrl+I` | Focus the assistant |
+| `/help` | List commands |
+| `/mode [name]` | `build`, `plan`, `review` or `fast` |
+| `/model [name]` | Show or change the model |
+| `/providers [n]` | List providers or switch |
+| `/init` | Write an `AGENTS.md` for the project |
+| `/diff` | Show the working tree diff |
+| `/undo` | Revert the last file the agent changed |
+| `/compact` | Summarize the conversation to free context |
+| `/cost` | Tokens used this session |
+| `/sessions`, `/resume <n>` | List and load saved sessions |
+| `/clear`, `/exit` | Forget the conversation / leave |
 
-Modes change what the agent is allowed to do:
-
-- **Build** edits files and runs commands.
-- **Plan** and **Review** are read-only.
-- **Fast** answers with as few tool calls as possible.
-
-Every conversation is saved under `~/.eschaton/sessions` and appears in the Sessions view.
+`Ctrl+C` cancels the running request. `--continue` resumes the last session in the directory.
 
 ## How it works
 
-```
-src/cli.ts              commands, flags, startup
-src/ide/server.ts       local HTTP server, file API, SSE streams, approvals
-src/ide/web/            editor UI (Monaco + xterm)
-src/llm/providers.ts    provider list, local discovery, streaming, failover
-src/agent/coding-agent.ts  ReAct loop and tools
-src/session.ts          session storage
+- **Native tool calling.** The agent sends `read_file`, `write_file`, `edit_file`, `run_command`,
+  `list_dir` and `search_code` as JSON schemas. Providers that reject `tools` fall back to a
+  single JSON block in the reply, so older models still work.
+- **Approval flow.** File writes and commands show a diff or the exact command and wait for
+  `y` / `n` / `a` (always for the rest of the run).
+- **Failover.** Providers are tried in order, free tiers first. A rejected key or a rate limit
+  moves to the next one and cools the failing provider down for a minute.
+- **Sessions.** Every conversation is stored in `~/.eschaton/sessions` and can be resumed.
+- **Undo.** Snapshots are taken before each write or edit, `/undo` restores the last one.
+
+## Providers
+
+| Provider | Variable | Default model |
+| --- | --- | --- |
+| OpenRouter | `OPENROUTER_API_KEY` | `deepseek/deepseek-chat-v3-0324:free` |
+| Google | `GEMINI_API_KEY` | `gemini-2.5-flash` |
+| Groq | `GROQ_API_KEY` | `deepseek-r1-distill-llama-70b` |
+| DeepSeek | `DEEPSEEK_API_KEY` | `deepseek-chat` |
+| Ollama | none | first installed model |
+| LM Studio | none | first loaded model |
+| Any OpenAI-compatible endpoint | `OPENAI_BASE_URL` + `OPENAI_API_KEY` | `OPENAI_MODEL` |
+
+`ESCHATON_MODEL` overrides the model of the selected provider.
+
+## Browser IDE
+
+There is also a light IDE built on Monaco and xterm, served locally:
+
+```bash
+eschaton ide
 ```
 
-The server binds to `127.0.0.1` only and refuses paths outside the workspace. Commands and file
-writes requested by the model are sent to the browser as an approval request before they run.
+![Eschaton IDE](docs/screenshot.png)
+
+It shares the same agent core and adds a file tree, tabs, a terminal, search, source control and
+approval cards. See `eschaton --help`.
 
 ## Development
 
 ```bash
 bun install
-bun run dev        # build once, then start the server
+bun run dev        # build once, then start the agent
 bun test
 bun run typecheck
 bun run build
 ```
 
-`bun run build` writes the CLI bundle to `dist/eschaton.js` and the UI to `dist/public`, including
-Monaco from `node_modules`. The built files are committed so a git install works without a build
-step.
+```
+src/agent/coding-agent.ts  tool loop, approvals, undo, compaction
+src/llm/providers.ts       providers, tool calling, streaming, failover
+src/ui/tui.ts              terminal interface and commands
+src/ide/                   browser IDE (server + Monaco/xterm UI)
+src/session.ts             session storage
+```
 
 ## Limitations
 
-- The terminal runs one command at a time; there is no interactive PTY, so full-screen programs
-  like `vim` or `htop` do not work there.
-- One workspace per server, no multi-root or remote editing.
-- No git UI yet; use the terminal.
-- The agent sees the conversation and the files it reads, not the whole repository.
+- The agent works with the files it reads; it does not index the whole repository. `search_code`
+  is a literal string search, not a symbol index.
+- No LSP or diagnostics yet.
+- The IDE terminal runs one command at a time, no PTY.
+- Model quality varies. Small local models often skip reading a file before editing it; the
+  prompt asks them not to, but they still do.
 
 ## License
 

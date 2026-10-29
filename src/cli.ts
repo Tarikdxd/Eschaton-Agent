@@ -6,7 +6,7 @@ import { startIde } from './ide/server.js'
 import { MODES, type Mode } from './agent/coding-agent.js'
 import { c } from './ui/theme.js'
 
-export const VERSION = '3.0.0'
+export const VERSION = '3.1.0'
 
 const DEFAULT_PORT = 4123
 
@@ -39,9 +39,9 @@ function printHelp(): void {
 Usage: eschaton [command] [options]
 
 Commands:
-  (none)                    open the IDE in your browser
-  ide [--port 4123]         open the IDE
-  chat                      use the terminal interface instead
+  (none)                    start the terminal agent in this directory
+  ide [--port 4123]         open the browser IDE instead
+  chat                      start the terminal agent (same as no command)
   doctor                    show detected models and settings
   setup                     show how to connect a model
   login <provider> <key>    save a key: deepseek, openrouter, groq, custom
@@ -213,7 +213,11 @@ async function main(): Promise<number> {
     return 0
   }
 
-  return runIde(command === 'ide' ? argv.slice(1) : argv)
+  if (command === 'ide' || argv.includes('--ide')) {
+    return runIde(command === 'ide' ? argv.slice(1) : argv)
+  }
+
+  return runChat(argv)
 }
 
 main()

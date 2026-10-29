@@ -1,27 +1,27 @@
 /**
  * Coding agent.
  *
- * Runs a ReAct loop against the provider pool: the model answers, optionally
- * requests one tool call, and the result is fed back until it stops calling
- * tools or the step limit is reached.
+ * Uses the provider's native tool calling when available and falls back to a
+ * JSON block in the reply for models that only support plain text.
  */
 
 import fs from 'node:fs'
 import path from 'node:path'
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
-import { ProviderPool, type ChatMessage, type Usage } from '../llm/providers.js'
+import {
+  ProviderPool,
+  type ChatMessage,
+  type ToolCall,
+  type ToolSpec,
+  type Usage,
+} from '../llm/providers.js'
 
 const execAsync = promisify(exec)
 
 export type Mode = 'Build' | 'Plan' | 'Review' | 'Fast'
 
 export const MODES: Mode[] = ['Build', 'Plan', 'Review', 'Fast']
-
-export interface ToolCall {
-  tool: string
-  args: Record<string, any>
-}
 
 export interface ToolPreview {
   kind: 'read' | 'write' | 'edit' | 'command' | 'list' | 'search'
@@ -30,7 +30,6 @@ export interface ToolPreview {
   before?: string
   after?: string
   detail?: string
-  /** Commands and file writes need confirmation. */
   needsApproval: boolean
 }
 
@@ -50,7 +49,6 @@ export interface AgentCallbacks {
 
 export interface RunOptions {
   signal?: AbortSignal
-  /** Return false to block a tool call. Receives the preview that was shown. */
   approve?: (call: ToolCall, preview: ToolPreview) => Promise<boolean>
   maxSteps?: number
 }
@@ -65,14 +63,99 @@ export interface RunResult {
 const READ_ONLY_MODES: Mode[] = ['Plan', 'Review']
 
 const MODE_RULES: Record<Mode, string> = {
-  Build:
-    'Implement the change: read the files you need, edit them, run the build or tests, then report what changed.',
-  Plan:
-    'Read-only. Do not edit files and do not run commands. Inspect the code and reply with a concrete plan: files to touch, order of work, risks.',
-  Review:
-    'Read-only. Do not edit files and do not run commands. Read the relevant code and report bugs, unsafe assumptions and missing tests, quoting paths and line numbers.',
-  Fast: 'Answer directly with as few tool calls as possible. A short explanation beats a full implementation.',
+  Build: 'Implement the change: read files, edit them, run the project tests, then report what changed.',
+  Plan: 'Read-only. Do not edit files or run commands. Reply with a concrete plan: files to touch, order of work, risks.',
+  Review: 'Read-only. Do not edit files or run commands. Report bugs, unsafe assumptions and missing tests with paths and line numbers.',
+  Fast: 'Answer directly with as few tool calls as possible.',
 }
+
+const TOOLS: ToolSpec[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'read_file',
+      description: 'Read a text file with line numbers.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filePath: { type: 'string', description: 'Path relative to the workspace' },
+          startLine: { type: 'number', description: 'First line, 1-based' },
+          endLine: { type: 'number', description: 'Last line, inclusive' },
+        },
+        required: ['filePath'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'write_file',
+      description: 'Create a file or replace its whole content.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filePath: { type: 'string' },
+          content: { type: 'string' },
+        },
+        required: ['filePath', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit_file',
+      description: 'Replace one exact substring in a file. Read the file first and copy the text exactly.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filePath: { type: 'string' },
+          target: { type: 'string', description: 'Exact text to replace, including indentation' },
+          replacement: { type: 'string' },
+        },
+        required: ['filePath', 'target', 'replacement'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'run_command',
+      description: 'Run a shell command in the workspace and return stdout and stderr.',
+      parameters: {
+        type: 'object',
+        properties: { command: { type: 'string' } },
+        required: ['command'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'list_dir',
+      description: 'List a directory.',
+      parameters: {
+        type: 'object',
+        properties: { dirPath: { type: 'string' } },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_code',
+      description: 'Find files containing a literal string.',
+      parameters: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string' },
+          dirPath: { type: 'string' },
+        },
+        required: ['pattern'],
+      },
+    },
+  },
+]
 
 function systemPrompt(cwd: string, mode: Mode): string {
   return `You are Eschaton Code, a coding agent working in the user's terminal.
@@ -81,26 +164,17 @@ Working directory: ${cwd}
 Platform: ${process.platform}
 Mode: ${mode}. ${MODE_RULES[mode]}
 
-Tools:
-1. read_file(filePath, startLine?, endLine?)
-2. write_file(filePath, content)
-3. edit_file(filePath, target, replacement) — replaces one exact substring
-4. run_command(command)
-5. list_dir(dirPath?)
-6. search_code(pattern, dirPath?)
-
-Reply with exactly one fenced block per tool call:
-
-\`\`\`tool:json
-{"tool": "read_file", "args": {"filePath": "src/cli.ts", "startLine": 1, "endLine": 40}}
-\`\`\`
-
 Rules:
 - Read a file before editing it. Copy the target text exactly, including indentation.
 - Paths are relative to the working directory.
-- Run the project's own test or build command when you change code, if one exists.
+- Run the project's own test or build command after changing code, if one exists.
 - Never invent file contents. If something is unknown, read it.
-- When the task is done, answer normally without a tool block.`
+- Keep answers short. The terminal is not a document editor.`
+}
+
+interface UndoEntry {
+  path: string
+  before: string | undefined
 }
 
 export class CodingAgent {
@@ -108,6 +182,7 @@ export class CodingAgent {
   private history: ChatMessage[] = []
   private cwd: string
   private mode: Mode
+  private undoStack: UndoEntry[] = []
 
   constructor(pool: ProviderPool, cwd: string = process.cwd(), mode: Mode = 'Build') {
     this.pool = pool
@@ -144,25 +219,14 @@ export class CodingAgent {
 
     const usage: Usage = { promptTokens: 0, completionTokens: 0 }
     let provider: string | undefined
-    const maxSteps = options.maxSteps ?? 25
+    const maxSteps = options.maxSteps ?? 30
 
     for (let step = 1; step <= maxSteps; step++) {
-      // Tool blocks are protocol, not prose. Forward the answer up to the block
-      // and drop the JSON so the user never sees it.
       let buffered = ''
       let muted = false
       const forward = (chunk: string) => {
         if (!callbacks.onToken || muted) return
         buffered += chunk
-
-        const marker = buffered.indexOf('```tool')
-        if (marker >= 0) {
-          if (marker > 0) callbacks.onToken(buffered.slice(0, marker))
-          buffered = ''
-          muted = true
-          return
-        }
-
         if (buffered.length > 8) {
           callbacks.onToken(buffered.slice(0, -8))
           buffered = buffered.slice(-8)
@@ -171,31 +235,56 @@ export class CodingAgent {
 
       const response = await this.pool.generate({
         messages: this.history,
+        tools: TOOLS,
         signal: options.signal,
-        onChunk: forward,
+        onChunk: callbacks.onToken ? forward : undefined,
         onThinking: callbacks.onThinking,
       })
 
-      if (!muted && buffered) callbacks.onToken?.(buffered)
-
       provider = response.provider
       accumulate(usage, response.usage)
-      this.history.push({ role: 'assistant', content: response.text })
 
-      const call = this.parseToolCall(response.text)
-      if (!call) {
-        return { text: response.text, steps: step, usage, provider }
+      if (response.toolCalls.length) {
+        muted = true
+        this.history.push({
+          role: 'assistant',
+          content: response.text,
+          tool_calls: response.toolCalls.map((call) => ({
+            id: call.id,
+            type: 'function' as const,
+            function: { name: call.name, arguments: call.arguments },
+          })),
+        })
+
+        for (const call of response.toolCalls) {
+          const parsed = parseArguments(call)
+          const result = await this.execute(call.name, parsed, callbacks, options)
+          callbacks.onToolEnd?.(result)
+
+          this.history.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: truncate(result.output, 30_000),
+          })
+        }
+
+        this.compactHistory()
+        continue
       }
 
-      const result = await this.execute(call, callbacks, options)
-      callbacks.onToolEnd?.(result)
+      if (!muted && buffered) callbacks.onToken?.(buffered)
+      this.history.push({ role: 'assistant', content: response.text })
 
-      this.history.push({
-        role: 'user',
-        content: `Result of ${call.tool}:\n${result.output}`,
-      })
+      const legacy = parseLegacyToolCall(response.text)
+      if (legacy) {
+        const result = await this.execute(legacy.name, legacy.args, callbacks, options)
+        callbacks.onToolEnd?.(result)
+        this.history.push({ role: 'user', content: `Result of ${legacy.name}:\n${truncate(result.output, 30_000)}` })
+        this.compactHistory()
+        continue
+      }
 
-      this.compactHistory()
+      return { text: response.text, steps: step, usage, provider }
     }
 
     return {
@@ -206,9 +295,57 @@ export class CodingAgent {
     }
   }
 
-  private async execute(call: ToolCall, callbacks: AgentCallbacks, options: RunOptions): Promise<ToolResult> {
-    const { tool, args } = call
+  public undoLast(): UndoEntry | undefined {
+    const entry = this.undoStack.pop()
+    if (!entry) return undefined
 
+    const file = path.resolve(this.cwd, entry.path)
+    if (entry.before === undefined) {
+      fs.rmSync(file, { force: true })
+    } else {
+      fs.mkdirSync(path.dirname(file), { recursive: true })
+      fs.writeFileSync(file, entry.before, 'utf-8')
+    }
+
+    return entry
+  }
+
+  public async compact(): Promise<string> {
+    if (this.history.length <= 2) return 'Nothing to compact.'
+
+    const transcript = this.history
+      .filter((message) => message.role !== 'system')
+      .map((message) => `${message.role}: ${message.content}`)
+      .join('\n\n')
+      .slice(-60_000)
+
+    const response = await this.pool.generate({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Summarize this coding session for a fresh context window. Keep: the goal, decisions, files changed, commands that matter, and open questions. Drop small talk. Write compact prose, max 400 words.',
+        },
+        { role: 'user', content: transcript },
+      ],
+    })
+
+    const summary = response.text.trim()
+    this.history = [
+      { role: 'system', content: systemPrompt(this.cwd, this.mode) },
+      { role: 'user', content: `Session so far (summary):\n${summary}` },
+      { role: 'assistant', content: 'Understood. Ready to continue.' },
+    ]
+
+    return summary
+  }
+
+  private async execute(
+    tool: string,
+    args: Record<string, any>,
+    callbacks: AgentCallbacks,
+    options: RunOptions,
+  ): Promise<ToolResult> {
     if (READ_ONLY_MODES.includes(this.mode) && ['write_file', 'edit_file', 'run_command'].includes(tool)) {
       return {
         tool,
@@ -218,13 +355,17 @@ export class CodingAgent {
     }
 
     const preview = this.describe(tool, args)
-    callbacks.onToolStart?.(call, preview)
+    callbacks.onToolStart?.({ id: '', name: tool, arguments: JSON.stringify(args) }, preview)
 
     if (preview.needsApproval && options.approve) {
-      const allowed = await options.approve(call, preview)
+      const allowed = await options.approve({ id: '', name: tool, arguments: JSON.stringify(args) }, preview)
       if (!allowed) {
-        return { tool, isError: true, output: 'Denied by the user. Do not retry this call; ask what to do instead.', preview }
+        return { tool, isError: true, output: 'Denied by the user. Do not retry; ask what to do instead.', preview }
       }
+    }
+
+    if (tool === 'write_file' || tool === 'edit_file') {
+      this.remember(args.filePath)
     }
 
     try {
@@ -235,25 +376,29 @@ export class CodingAgent {
     }
   }
 
+  private remember(filePath: string): void {
+    const file = path.resolve(this.cwd, filePath)
+    const before = fs.existsSync(file) ? fs.readFileSync(file, 'utf-8') : undefined
+    this.undoStack.push({ path: filePath, before })
+    if (this.undoStack.length > 50) this.undoStack.shift()
+  }
+
   private describe(tool: string, args: Record<string, any>): ToolPreview {
     if (tool === 'write_file') {
       const target = path.resolve(this.cwd, args.filePath ?? '')
-      const before = fs.existsSync(target) ? readText(target) : undefined
+      const before = fs.existsSync(target) ? fs.readFileSync(target, 'utf-8') : undefined
       return { kind: 'write', path: args.filePath, before, after: String(args.content ?? ''), needsApproval: true }
     }
 
     if (tool === 'edit_file') {
       const target = path.resolve(this.cwd, args.filePath ?? '')
-      const before = fs.existsSync(target) ? readText(target) : undefined
-      const target_ = String(args.target ?? '')
-      const after = before?.includes(target_) ? before.replace(target_, String(args.replacement ?? '')) : undefined
+      const before = fs.existsSync(target) ? fs.readFileSync(target, 'utf-8') : undefined
+      const needle = String(args.target ?? '')
+      const after = before?.includes(needle) ? before.replace(needle, String(args.replacement ?? '')) : undefined
       return { kind: 'edit', path: args.filePath, before, after, needsApproval: true }
     }
 
-    if (tool === 'run_command') {
-      return { kind: 'command', command: String(args.command ?? ''), needsApproval: true }
-    }
-
+    if (tool === 'run_command') return { kind: 'command', command: String(args.command ?? ''), needsApproval: true }
     if (tool === 'read_file') return { kind: 'read', path: args.filePath, needsApproval: false }
     if (tool === 'list_dir') return { kind: 'list', path: args.dirPath ?? '.', needsApproval: false }
     return { kind: 'search', detail: String(args.pattern ?? ''), needsApproval: false }
@@ -265,7 +410,7 @@ export class CodingAgent {
         const file = path.resolve(this.cwd, args.filePath)
         if (!fs.existsSync(file)) return `File not found: ${args.filePath}`
 
-        const lines = readText(file).split('\n')
+        const lines = fs.readFileSync(file, 'utf-8').split('\n')
         const start = Math.max(1, Number(args.startLine) || 1)
         const end = Math.min(lines.length, Number(args.endLine) || lines.length)
         return lines
@@ -285,7 +430,7 @@ export class CodingAgent {
         const file = path.resolve(this.cwd, args.filePath)
         if (!fs.existsSync(file)) return `File not found: ${args.filePath}`
 
-        const content = readText(file)
+        const content = fs.readFileSync(file, 'utf-8')
         const target: string = args.target ?? ''
         if (!target) return 'target is empty'
         if (!content.includes(target)) {
@@ -344,7 +489,7 @@ export class CodingAgent {
             }
             try {
               if (fs.statSync(full).size > 512 * 1024) continue
-              if (readText(full).includes(pattern)) hits.push(path.relative(root, full))
+              if (fs.readFileSync(full, 'utf-8').includes(pattern)) hits.push(path.relative(root, full))
             } catch {
               // Binary or unreadable file.
             }
@@ -360,36 +505,8 @@ export class CodingAgent {
     }
   }
 
-  private parseToolCall(content: string): ToolCall | null {
-    const block = content.match(/```(?:tool:json|tool|json)\s*([\s\S]*?)```/)
-    const candidates = block?.[1] ? [block[1]] : []
-    candidates.push(content)
-
-    for (const candidate of candidates) {
-      try {
-        const parsed = JSON.parse(candidate.trim())
-        if (parsed?.tool && parsed?.args) return parsed as ToolCall
-      } catch {
-        // Not JSON.
-      }
-    }
-
-    const inline = content.match(/\{"tool"\s*:\s*"[^"]+"[\s\S]*?"args"\s*:\s*\{[\s\S]*?\}\s*\}/)
-    if (inline) {
-      try {
-        const parsed = JSON.parse(inline[0])
-        if (parsed?.tool && parsed?.args) return parsed as ToolCall
-      } catch {
-        // Malformed.
-      }
-    }
-
-    return null
-  }
-
-  /** Keeps the system prompt and the most recent turns when the history grows. */
   private compactHistory(maxChars = 120_000): void {
-    const size = () => this.history.reduce((total, message) => total + message.content.length, 0)
+    const size = () => this.history.reduce((total, message) => total + (message.content?.length ?? 0), 0)
     if (size() <= maxChars) return
 
     const [system, ...rest] = this.history
@@ -398,17 +515,42 @@ export class CodingAgent {
 
     for (let i = rest.length - 1; i >= 0; i--) {
       const message = rest[i]!
-      if (total + message.content.length > maxChars && kept.length >= 4) break
+      if (total + (message.content?.length ?? 0) > maxChars && kept.length >= 4) break
       kept.unshift(message)
-      total += message.content.length
+      total += message.content?.length ?? 0
     }
 
     this.history = system ? [system, ...kept] : kept
   }
 }
 
-function readText(file: string): string {
-  return fs.readFileSync(file, 'utf-8')
+function parseArguments(call: ToolCall): Record<string, any> {
+  try {
+    const parsed = JSON.parse(call.arguments || '{}')
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function parseLegacyToolCall(content: string): { name: string; args: Record<string, any> } | null {
+  const block = content.match(/```(?:tool:json|tool|json)\s*([\s\S]*?)```/)
+  const candidates = block?.[1] ? [block[1]] : []
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate.trim())
+      if (parsed?.tool && parsed?.args) return { name: parsed.tool, args: parsed.args }
+    } catch {
+      // Not JSON.
+    }
+  }
+
+  return null
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max)}\n… truncated` : text
 }
 
 function accumulate(target: Usage, next?: Usage): void {

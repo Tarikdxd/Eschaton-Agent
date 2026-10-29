@@ -9141,9 +9141,13 @@ ${h2.join(`
 
   // src/ide/web/app.ts
   var $2 = (id) => document.getElementById(id);
+  var settings = {
+    fontSize: Number(localStorage.getItem("eschaton.fontSize") ?? 13),
+    autoApprove: localStorage.getItem("eschaton.autoApprove") === "1",
+    model: localStorage.getItem("eschaton.model") ?? ""
+  };
   var state = {
     cwd: "",
-    model: null,
     provider: null,
     sessionId: null,
     mode: "Build",
@@ -9193,7 +9197,7 @@ ${h2.join(`
     editor = monaco.editor.create($2("editor"), {
       theme: "eschaton-dark",
       automaticLayout: true,
-      fontSize: 13,
+      fontSize: settings.fontSize,
       fontFamily: "'Cascadia Code', 'JetBrains Mono', Consolas, monospace",
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
@@ -9214,18 +9218,26 @@ ${h2.join(`
       $2("status-position").textContent = `${event.position.lineNumber}:${event.position.column}`;
     });
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void saveActive());
-    monaco.editor.onDidChangeMarkers?.(() => {
-    });
   }
-  async function openFile(path) {
+  async function openFile(path, line) {
     const existing = state.tabs.get(path);
-    if (existing) return activate(path);
+    if (existing) {
+      activate(path);
+      if (line) reveal(line);
+      return;
+    }
     const { content } = await api(`/api/file?path=${encodeURIComponent(path)}`);
     const uri = monaco.Uri.file(path);
     let model = monaco.editor.getModel(uri);
     if (!model) model = monaco.editor.createModel(content, languageOf(path), uri);
     state.tabs.set(path, { path, model, dirty: false, saved: content });
     activate(path);
+    if (line) reveal(line);
+  }
+  function reveal(line) {
+    editor.revealLineInCenter(line);
+    editor.setPosition({ lineNumber: line, column: 1 });
+    editor.focus();
   }
   function activate(path) {
     const tab = state.tabs.get(path);
@@ -9254,7 +9266,6 @@ ${h2.join(`
     tab.saved = tab.model.getValue();
     tab.dirty = false;
     renderTabs();
-    $2("composer-hint").textContent = `saved ${path}`;
   }
   function closeTab(path) {
     const tab = state.tabs.get(path);
@@ -9264,8 +9275,9 @@ ${h2.join(`
     if (state.active === path) {
       state.active = null;
       const next = [...state.tabs.keys()].pop();
-      if (next) activate(next);
-      else {
+      if (next) {
+        activate(next);
+      } else {
         editor.setModel(null);
         $2("editor").style.visibility = "hidden";
         $2("welcome").classList.remove("hidden");
@@ -9387,6 +9399,10 @@ ${h2.join(`
             void openFile(node.path);
           }
         };
+        row.oncontextmenu = (event) => {
+          event.preventDefault();
+          showContextMenu(event.clientX, event.clientY, node);
+        };
         parent.append(row);
         if (node.dir && state.expanded.has(node.path)) {
           const children = document.createElement("div");
@@ -9403,12 +9419,211 @@ ${h2.join(`
       row.classList.toggle("selected", row.dataset.path === state.active);
     }
   }
+  function showContextMenu(x, y, node) {
+    const menu = $2("context-menu");
+    menu.innerHTML = "";
+    menu.classList.remove("hidden");
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    const items = [
+      ["New file", () => void createEntry(node.dir ? node.path : dirOf(node.path), false)],
+      ["New folder", () => void createEntry(node.dir ? node.path : dirOf(node.path), true)],
+      ["Rename", () => void renameEntry(node.path)],
+      ["Delete", () => void deleteEntry(node.path)]
+    ];
+    for (const [label, action] of items) {
+      const item = document.createElement("div");
+      item.className = "context-item";
+      item.textContent = label;
+      item.onclick = () => {
+        menu.classList.add("hidden");
+        action();
+      };
+      menu.append(item);
+    }
+    const close = () => {
+      menu.classList.add("hidden");
+      document.removeEventListener("click", close);
+    };
+    setTimeout(() => document.addEventListener("click", close), 0);
+  }
+  function dirOf(path) {
+    return path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+  }
+  function join(dir, name) {
+    return dir ? `${dir}/${name}` : name;
+  }
+  async function createEntry(dir, isDir) {
+    const name = await askText(isDir ? "New folder name" : "New file name", "");
+    if (!name) return;
+    const target = join(dir, name);
+    try {
+      await api("/api/file", { method: "POST", body: JSON.stringify({ path: target, dir: isDir }) });
+      if (dir) state.expanded.add(dir);
+      await loadTree();
+      if (!isDir) await openFile(target);
+    } catch (err) {
+      alert(String(err.message ?? err));
+    }
+  }
+  async function renameEntry(path) {
+    const name = await askText("Rename", path.split("/").pop() ?? path);
+    if (!name) return;
+    const target = join(dirOf(path), name);
+    if (target === path) return;
+    try {
+      await api("/api/rename", { method: "POST", body: JSON.stringify({ from: path, to: target }) });
+      if (state.tabs.has(path)) closeTab(path);
+      await loadTree();
+    } catch (err) {
+      alert(String(err.message ?? err));
+    }
+  }
+  async function deleteEntry(path) {
+    if (!confirm(`Delete ${path}?`)) return;
+    try {
+      await api(`/api/file?path=${encodeURIComponent(path)}`, { method: "DELETE" });
+      if (state.tabs.has(path)) {
+        state.tabs.delete(path);
+        if (state.active === path) {
+          editor.setModel(null);
+          $2("editor").style.visibility = "hidden";
+          $2("welcome").classList.remove("hidden");
+        }
+        renderTabs();
+      }
+      await loadTree();
+    } catch (err) {
+      alert(String(err.message ?? err));
+    }
+  }
+  var searchTimer;
+  function initSearch() {
+    const input = $2("search-input");
+    input.oninput = () => {
+      window.clearTimeout(searchTimer);
+      searchTimer = window.setTimeout(() => void runSearch(input.value.trim()), 250);
+    };
+    input.onkeydown = (event) => {
+      if (event.key === "Enter") void runSearch(input.value.trim());
+    };
+  }
+  async function runSearch(query) {
+    const container = $2("search-results");
+    container.innerHTML = "";
+    if (!query) return;
+    const { results } = await api(
+      `/api/search?q=${encodeURIComponent(query)}`
+    );
+    const header = document.createElement("div");
+    header.className = "results-head";
+    header.textContent = `${results.length} result${results.length === 1 ? "" : "s"}`;
+    container.append(header);
+    for (const result of results) {
+      const row = document.createElement("div");
+      row.className = "result";
+      row.innerHTML = `<span class="result-path">${escapeHtml(result.path)}:${result.line}</span><span class="result-text">${escapeHtml(
+        result.text
+      )}</span>`;
+      row.onclick = () => void openFile(result.path, result.line);
+      container.append(row);
+    }
+  }
+  var gitFiles = [];
+  function initGit() {
+    $2("git-refresh").onclick = () => void refreshGit();
+    $2("git-sync").onclick = () => void syncGit();
+    $2("commit-button").onclick = () => void commitGit();
+  }
+  async function refreshGit() {
+    try {
+      const status = await api("/api/git/status");
+      if (!status.isRepo) {
+        $2("git-branch").textContent = "not a git repository";
+        $2("git-files").innerHTML = "";
+        $2("status-git").textContent = "";
+        return;
+      }
+      gitFiles = status.files;
+      $2("git-branch").textContent = `${status.branch}${status.ahead ? ` \u2191${status.ahead}` : ""}${status.behind ? ` \u2193${status.behind}` : ""}`;
+      $2("status-git").textContent = `\u2442 ${status.branch}`;
+      renderGitFiles();
+    } catch {
+    }
+  }
+  function renderGitFiles() {
+    const container = $2("git-files");
+    container.innerHTML = "";
+    if (!gitFiles.length) {
+      container.innerHTML = '<div class="results-head">No changes</div>';
+      return;
+    }
+    for (const file of gitFiles) {
+      const row = document.createElement("div");
+      row.className = "result git-file";
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.checked = file.staged;
+      check.title = "Stage";
+      check.onclick = async (event) => {
+        event.stopPropagation();
+        await api("/api/git/stage", {
+          method: "POST",
+          body: JSON.stringify({ path: file.path, staged: check.checked })
+        });
+        void refreshGit();
+      };
+      const name = document.createElement("span");
+      name.className = "git-name";
+      name.textContent = file.path;
+      const badge = document.createElement("span");
+      badge.className = `git-status status-${file.status.replace(/\s/g, "")}`;
+      badge.textContent = file.status;
+      row.append(check, badge, name);
+      row.onclick = () => void showDiff(file.path, file.staged);
+      container.append(row);
+    }
+  }
+  async function showDiff(path, staged) {
+    const { diff } = await api(
+      `/api/git/diff?path=${encodeURIComponent(path)}&staged=${staged ? "1" : "0"}`
+    );
+    $2("diff-title").textContent = `${path}${staged ? " (staged)" : ""}`;
+    $2("diff-body").innerHTML = diff ? diff.split("\n").map((line) => {
+      const cls = line.startsWith("+") ? "diff-add" : line.startsWith("-") ? "diff-del" : line.startsWith("@@") ? "diff-hunk" : "";
+      return `<span class="${cls}">${escapeHtml(line)}</span>`;
+    }).join("\n") : "No changes.";
+    $2("diff-modal").classList.remove("hidden");
+  }
+  async function commitGit() {
+    const message = $2("commit-message").value.trim();
+    if (!message) return alert("Write a commit message first.");
+    const result = await api("/api/git/commit", { method: "POST", body: JSON.stringify({ message }) });
+    if (!result.ok) alert(result.output || "Commit failed");
+    $2("commit-message").value = "";
+    await refreshGit();
+  }
+  async function syncGit() {
+    const button = $2("git-sync");
+    button.disabled = true;
+    try {
+      const result = await api("/api/git/sync", { method: "POST" });
+      $2("diff-title").textContent = "Sync";
+      $2("diff-body").textContent = result.output || "Up to date.";
+      $2("diff-modal").classList.remove("hidden");
+      await refreshGit();
+    } catch (err) {
+      alert(String(err.message ?? err));
+    } finally {
+      button.disabled = false;
+    }
+  }
   async function loadSessions() {
     const data = await api("/api/state");
     const container = $2("sessions");
     container.innerHTML = "";
     if (!data.sessions.length) {
-      container.innerHTML = '<div class="row">No sessions yet</div>';
+      container.innerHTML = '<div class="results-head">No sessions yet</div>';
       return;
     }
     for (const session of data.sessions) {
@@ -9425,6 +9640,7 @@ ${h2.join(`
         state.mode = session.mode;
         $2("mode").value = session.mode;
         $2("session-line").textContent = session.id;
+        $2("status-session").textContent = session.id.slice(0, 8);
         $2("messages").innerHTML = "";
         appendMessage("assistant", `Resumed session from ${new Date(session.createdAt).toLocaleString()}. Continue the conversation.`);
         loadSessions();
@@ -9479,7 +9695,7 @@ ${h2.join(`
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: state.sessionId, message, mode: state.mode })
+        body: JSON.stringify({ sessionId: state.sessionId, message, mode: state.mode, autoApprove: settings.autoApprove })
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       const reader = res.body.getReader();
@@ -9499,6 +9715,7 @@ ${h2.join(`
             if (event.type === "start") {
               state.sessionId = event.sessionId;
               $2("session-line").textContent = event.sessionId;
+              $2("status-session").textContent = String(event.sessionId).slice(0, 8);
             }
             if (event.type === "token") {
               if (!assistant) {
@@ -9530,6 +9747,8 @@ ${h2.join(`
       if (assistant) formatAssistant(assistant);
       void loadSessions();
       void refreshOpenFiles();
+      void loadTree();
+      void refreshGit();
     }
   }
   function addToolCard(event) {
@@ -9570,9 +9789,9 @@ ${h2.join(`
     const card = document.createElement("div");
     card.className = "tool-card";
     card.dataset.name = event.tool;
+    const path = event.preview?.path ?? event.preview?.command ?? "";
     const head = document.createElement("div");
     head.className = "head";
-    const path = event.preview?.path ?? event.preview?.command ?? "";
     head.innerHTML = `<span class="name">${escapeHtml(event.tool)}</span><span>${escapeHtml(path)}</span><span class="status">\u2026</span>`;
     card.append(head);
     if (event.preview?.command) {
@@ -9607,8 +9826,26 @@ ${h2.join(`
     };
     actions.append(allow, deny);
     card.append(actions);
+    if (event.preview?.after !== void 0 && event.preview?.path) {
+      const revert = document.createElement("button");
+      revert.className = "ghost tiny";
+      revert.textContent = "Revert after run";
+      revert.dataset.before = event.preview.before ?? "";
+      revert.dataset.path = event.preview.path;
+      revert.onclick = () => void revertEdit(event.preview.path, event.preview.before);
+      card.append(revert);
+    }
     $2("messages").append(card);
     $2("messages").scrollTop = $2("messages").scrollHeight;
+  }
+  async function revertEdit(path, before) {
+    if (before === void 0) {
+      await api(`/api/file?path=${encodeURIComponent(path)}`, { method: "DELETE" });
+    } else {
+      await api("/api/file", { method: "PUT", body: JSON.stringify({ path, content: before }) });
+    }
+    await refreshOpenFiles();
+    await loadTree();
   }
   async function refreshOpenFiles() {
     for (const [path, tab] of state.tabs) {
@@ -9693,7 +9930,7 @@ ${h2.join(`
         }
         return;
       }
-      if (data >= " " && data !== "\x7F") {
+      if (data >= " ") {
         input += data;
         term.write(data);
       }
@@ -9721,6 +9958,36 @@ ${h2.join(`
       ...removed.map((line) => `<span class="diff-del">- ${escapeHtml(line)}</span>`),
       ...added.map((line) => `<span class="diff-add">+ ${escapeHtml(line)}</span>`)
     ].join("\n");
+  }
+  function askText(title, value) {
+    return new Promise((resolve) => {
+      const modal = document.createElement("div");
+      modal.className = "modal";
+      modal.innerHTML = `
+      <div class="dialog">
+        <h2>${escapeHtml(title)}</h2>
+        <input class="dialog-input" type="text" />
+        <div class="dialog-actions">
+          <button class="ghost cancel">Cancel</button>
+          <button class="primary ok">OK</button>
+        </div>
+      </div>`;
+      document.body.append(modal);
+      const input = modal.querySelector(".dialog-input");
+      input.value = value;
+      input.focus();
+      input.select();
+      const finish = (result) => {
+        modal.remove();
+        resolve(result);
+      };
+      modal.querySelector(".cancel").addEventListener("click", () => finish(null));
+      modal.querySelector(".ok").addEventListener("click", () => finish(input.value.trim() || null));
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") finish(input.value.trim() || null);
+        if (event.key === "Escape") finish(null);
+      });
+    });
   }
   function initQuickOpen() {
     const modal = $2("quick-open-modal");
@@ -9778,10 +10045,72 @@ ${h2.join(`
     if (name.startsWith(query)) return 80;
     return 10;
   }
+  function initSettings() {
+    const modal = $2("settings-modal");
+    $2("open-settings").onclick = () => {
+      ;
+      $2("setting-font-size").value = String(settings.fontSize);
+      $2("setting-approve").checked = !settings.autoApprove;
+      $2("setting-model").value = settings.model || "";
+      modal.classList.remove("hidden");
+    };
+    $2("settings-close").onclick = () => modal.classList.add("hidden");
+    $2("settings-save").onclick = async () => {
+      settings.fontSize = Number($2("setting-font-size").value) || 13;
+      settings.autoApprove = !$2("setting-approve").checked;
+      settings.model = $2("setting-model").value.trim();
+      localStorage.setItem("eschaton.fontSize", String(settings.fontSize));
+      localStorage.setItem("eschaton.autoApprove", settings.autoApprove ? "1" : "0");
+      localStorage.setItem("eschaton.model", settings.model);
+      editor.updateOptions({ fontSize: settings.fontSize });
+      if (settings.model) {
+        await api("/api/model", { method: "POST", body: JSON.stringify({ model: settings.model }) });
+        $2("status-provider").textContent = `${state.provider ?? "model"} \xB7 ${settings.model}`;
+      }
+      modal.classList.add("hidden");
+    };
+    $2("diff-close").onclick = () => $2("diff-modal").classList.add("hidden");
+  }
+  function switchView(view) {
+    document.querySelectorAll(".activity-btn[data-view]").forEach((item) => item.classList.remove("active"));
+    document.querySelector(`.activity-btn[data-view="${view}"]`)?.classList.add("active");
+    for (const panel of ["tree", "search-panel", "git-panel", "sessions"]) {
+      $2(panel).classList.toggle("hidden", panel !== view && !(view === "explorer" && panel === "tree"));
+    }
+    const titles = {
+      explorer: "Explorer",
+      search: "Search",
+      git: "Source control",
+      sessions: "Sessions"
+    };
+    $2("sidebar-title").textContent = titles[view] ?? view;
+    const actions = $2("sidebar-actions");
+    actions.innerHTML = "";
+    if (view === "explorer") {
+      const newFile = document.createElement("button");
+      newFile.className = "ghost tiny";
+      newFile.textContent = "\uFF0B";
+      newFile.title = "New file";
+      newFile.onclick = () => void createEntry("", false);
+      const newFolder = document.createElement("button");
+      newFolder.className = "ghost tiny";
+      newFolder.textContent = "\u25A3";
+      newFolder.title = "New folder";
+      newFolder.onclick = () => void createEntry("", true);
+      const refresh = document.createElement("button");
+      refresh.className = "ghost tiny";
+      refresh.textContent = "\u27F3";
+      refresh.title = "Refresh";
+      refresh.onclick = () => void loadTree();
+      actions.append(newFile, newFolder, refresh);
+    }
+    if (view === "search") $2("search-input").focus();
+    if (view === "git") void refreshGit();
+    if (view === "sessions") void loadSessions();
+  }
   async function init() {
     const status = await api("/api/state");
     state.cwd = status.cwd;
-    state.model = status.model;
     state.provider = status.provider;
     $2("workspace-name").textContent = status.name;
     $2("status-provider").textContent = status.provider ? `${status.provider} \xB7 ${status.model}` : "no model";
@@ -9789,8 +10118,12 @@ ${h2.join(`
     await initEditor();
     initTerminal();
     initQuickOpen();
+    initSearch();
+    initGit();
+    initSettings();
     await loadTree();
     await loadSessions();
+    await refreshGit();
     $2("send").onclick = () => void send();
     const prompt = $2("prompt");
     prompt.onkeydown = (event) => {
@@ -9805,40 +10138,45 @@ ${h2.join(`
     $2("new-session").onclick = () => {
       state.sessionId = null;
       $2("session-line").textContent = "new session";
+      $2("status-session").textContent = "";
       $2("messages").innerHTML = "";
       void loadSessions();
     };
-    $2("refresh-tree").onclick = () => void loadTree();
     document.querySelectorAll(".activity-btn[data-view]").forEach((button) => {
-      button.onclick = () => {
-        const view = button.dataset.view;
-        document.querySelectorAll(".activity-btn[data-view]").forEach((item) => item.classList.remove("active"));
-        button.classList.add("active");
-        $2("tree").classList.toggle("hidden", view !== "explorer");
-        $2("sessions").classList.toggle("hidden", view !== "sessions");
-        $2("sidebar-title").textContent = view === "explorer" ? "Explorer" : "Sessions";
-        if (view === "sessions") void loadSessions();
-      };
+      button.onclick = () => switchView(button.dataset.view);
     });
     $2("toggle-ai").onclick = () => {
       $2("ai").classList.toggle("hidden");
-      const grid = $2("body");
-      grid.style.gridTemplateColumns = $2("ai").classList.contains("hidden") ? "48px 250px minmax(0, 1fr)" : "48px 250px minmax(0, 1fr) 380px";
+      const hidden = $2("ai").classList.contains("hidden");
+      $2("body").style.gridTemplateColumns = hidden ? "48px 250px minmax(0, 1fr)" : "48px 250px minmax(0, 1fr) 380px";
       editor?.layout();
     };
     window.addEventListener("keydown", (event) => {
-      if (event.ctrlKey && event.key.toLowerCase() === "p") {
+      const ctrl = event.ctrlKey || event.metaKey;
+      if (ctrl && event.key.toLowerCase() === "p") {
         event.preventDefault();
         $2("quick-open").click();
       }
-      if (event.ctrlKey && event.key === "`") {
+      if (ctrl && event.shiftKey && event.key.toLowerCase() === "f") {
+        event.preventDefault();
+        switchView("search");
+        $2("search-input").focus();
+      }
+      if (ctrl && event.shiftKey && event.key.toLowerCase() === "g") {
+        event.preventDefault();
+        switchView("git");
+      }
+      if (ctrl && event.key === "`") {
         event.preventDefault();
         $2("panel").classList.toggle("hidden");
         editor?.layout();
       }
-      if (event.ctrlKey && event.key.toLowerCase() === "i") {
+      if (ctrl && event.key.toLowerCase() === "i") {
         event.preventDefault();
         prompt.focus();
+      }
+      if (event.key === "Escape") {
+        for (const modal of ["quick-open-modal", "settings-modal", "diff-modal"]) $2(modal).classList.add("hidden");
       }
     });
   }

@@ -40,6 +40,7 @@ describe('provider pool', () => {
       model: 'test-model',
       apiKey: 'key',
       local: false,
+      free: false,
       cooldownUntil: 0,
     }
 
@@ -103,6 +104,53 @@ describe('provider pool', () => {
     expect(String(error)).toContain('API key rejected')
   })
 
+  test('reads native tool calls', async () => {
+    const server = await serve((_body, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: '',
+                tool_calls: [
+                  {
+                    id: 'call_1',
+                    type: 'function',
+                    function: { name: 'read_file', arguments: '{"filePath":"a.ts"}' },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      )
+    })
+
+    const pool = new ProviderPool([
+      {
+        id: 'test',
+        label: 'Test',
+        baseUrl: address(server),
+        model: 'm',
+        apiKey: 'k',
+        local: false,
+        cooldownUntil: 0,
+      },
+    ])
+
+    const result = await pool.generate({
+      messages: [{ role: 'user', content: 'read a.ts' }],
+      tools: [{ type: 'function', function: { name: 'read_file', description: 'read', parameters: { type: 'object' } } }],
+    })
+
+    server.close()
+
+    expect(result.toolCalls).toHaveLength(1)
+    expect(result.toolCalls[0]?.name).toBe('read_file')
+    expect(result.toolCalls[0]?.arguments).toContain('a.ts')
+  })
+
   test('builds providers from environment variables', () => {
     const providers = providersFromSettings({}, { OPENROUTER_API_KEY: 'sk-or-test' } as NodeJS.ProcessEnv)
     expect(providers).toHaveLength(1)
@@ -147,7 +195,7 @@ describe('coding agent', () => {
     const agent = new CodingAgent(pool, dir)
 
     const { text: reply } = await agent.run('create hello.txt', {
-      onToolStart: (call) => tools.push(call.tool),
+      onToolStart: (call) => tools.push(call.name),
       onToolEnd: (result) => tools.push(result.isError ? 'error' : 'ok'),
     })
 
@@ -159,6 +207,62 @@ describe('coding agent', () => {
     expect(reply).toBe('Done.')
     expect(tools).toEqual(['write_file', 'ok'])
     expect(written).toBe('written\n')
+  })
+
+  test('runs a native tool call and feeds the result back', async () => {
+    const server = await serve((_body, res, count) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+
+      if (count === 1) {
+        res.end(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: '',
+                  tool_calls: [
+                    {
+                      id: 'call_native',
+                      type: 'function',
+                      function: {
+                        name: 'write_file',
+                        arguments: JSON.stringify({ filePath: 'native.txt', content: 'via tools' }),
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }),
+        )
+        return
+      }
+
+      res.end(JSON.stringify({ choices: [{ message: { content: 'done' } }] }))
+    })
+
+    const pool = new ProviderPool([
+      {
+        id: 'test',
+        label: 'Test',
+        baseUrl: address(server),
+        model: 'm',
+        apiKey: 'k',
+        local: false,
+        cooldownUntil: 0,
+      },
+    ])
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'eschaton-native-'))
+    const agent = new CodingAgent(pool, dir)
+    const { text } = await agent.run('write native.txt')
+
+    const written = fs.readFileSync(path.join(dir, 'native.txt'), 'utf-8')
+    server.close()
+    fs.rmSync(dir, { recursive: true, force: true })
+
+    expect(text).toBe('done')
+    expect(written).toBe('via tools')
   })
 })
 

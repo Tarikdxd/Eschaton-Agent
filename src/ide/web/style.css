@@ -662,3 +662,275 @@ select {
     display: none;
   }
 }
+
+/* Sidebar panels */
+.sidebar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+#search-input {
+  margin: 8px;
+  padding: 6px 8px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+}
+
+#search-input:focus {
+  border-color: var(--accent);
+}
+
+.results {
+  overflow: auto;
+  padding: 0 6px 10px;
+  flex: 1;
+}
+
+.results-head {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 6px 4px;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.result:hover {
+  background: var(--panel-2);
+}
+
+.result-path {
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-text {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Git */
+.git-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px 4px;
+}
+
+#git-branch {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.git-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.git-file {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.git-file input {
+  accent-color: var(--accent);
+}
+
+.git-name {
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.git-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  width: 14px;
+  text-align: center;
+  border-radius: 3px;
+  color: var(--yellow);
+}
+
+.status-M {
+  color: var(--yellow);
+}
+
+.status-A,
+.status-\?\? {
+  color: var(--green);
+}
+
+.status-D {
+  color: var(--red);
+}
+
+.commit-box {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.commit-box textarea {
+  width: 100%;
+  resize: none;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+  outline: none;
+}
+
+.commit-box textarea:focus {
+  border-color: var(--accent);
+}
+
+/* Dialogs */
+.dialog {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  width: min(420px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dialog.wide {
+  width: min(900px, 92vw);
+}
+
+.dialog h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dialog-input,
+.field input[type='text'],
+.field input[type='number'] {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+}
+
+.dialog-input:focus,
+.field input:focus {
+  border-color: var(--accent);
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+}
+
+.field input[type='text'],
+.field input[type='number'] {
+  width: 180px;
+}
+
+.field input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.diff-body {
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+  background: #12151a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.diff-add {
+  color: var(--green);
+}
+
+.diff-del {
+  color: var(--red);
+}
+
+.diff-hunk {
+  color: var(--accent);
+}
+
+/* Context menu */
+.context-menu {
+  position: fixed;
+  z-index: 30;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.context-item {
+  padding: 6px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.context-item:hover {
+  background: var(--accent-soft);
+}
+
+/* Modal centering: the base modal is a column for quick open */
+#settings-modal,
+#diff-modal {
+  justify-content: flex-start;
+  align-items: center;
+}

@@ -1,36 +1,29 @@
 # Release notes
 
+## 3.1.0
+
+The terminal agent is the main product again, and it now uses native tool calling.
+
+- **Tool calling.** Tools are sent as JSON schemas; the model returns `tool_calls` instead of a
+  JSON block in prose. Providers that reject the parameter fall back to the old text parsing.
+- **Undo.** A snapshot is taken before each write or edit, `/undo` restores the last one.
+- **New commands.** `/init`, `/diff`, `/compact`, `/cost`, `/sessions`, `/resume`.
+- **More free providers.** OpenRouter, Google and Groq free tiers are tried before paid ones.
+  `eschaton login gemini ...` is new.
+- **`eschaton` starts the terminal agent again.** `eschaton ide` opens the browser IDE.
+
 ## 3.0.0
 
-Eschaton is now an IDE instead of a terminal prompt.
-
-- `eschaton` starts a local server and opens an editor in the browser: Monaco, file tree, tabs,
-  terminal and assistant panel. `eschaton chat` keeps the old terminal interface.
-- The assistant streams into the chat panel, shows a diff before writing a file and asks for
-  approval before an edit or a command. Plan and Review modes block writes entirely.
-- Conversations are saved under `~/.eschaton/sessions` and listed in the Sessions view.
-- `eschaton doctor` reports the configured providers, saved key and local servers.
-- New flags: `--port`, `--no-open`, `--mode`, `--continue` (terminal interface).
-- The package now ships the built UI in `dist/public`, including Monaco and xterm.
+Eschaton became an IDE: `eschaton` started a local server with Monaco, a file tree, tabs, a
+terminal and an assistant panel with diff previews and approvals.
 
 ## 2.1.0
 
-Repository cleanup. Behavior unchanged.
+Repository cleanup. Behaviour unchanged.
 
-- Removed the Codebuff and Freebuff sources the CLI never imported.
-- Added `typecheck` and a strict `tsconfig.json`.
-- Committed `dist/eschaton.js` so git installs work.
-
-## 2.0.1
+## 2.0.x
 
 - Published as `eschaton-code` with a working `eschaton` command.
-- Fixed the repository URL format npm expected.
-
-## 2.0.0
-
 - Provider layer for DeepSeek, OpenRouter, Groq, any OpenAI-compatible endpoint, Ollama and
   LM Studio.
-- `eschaton login` saves a key to `~/.eschaton/config.json`.
-- New agent loop with four modes.
-- Removed the device identity rotation, the `/refresh` quota claim, the custom gateway and the
-  `opencode`/`freebuff` command aliases.
+- Removed the device identity rotation, the `/refresh` quota claim and the fake gateway.

@@ -29,17 +29,42 @@
       <main id="body">
         <nav id="activity">
           <button class="activity-btn active" data-view="explorer" title="Explorer">▤</button>
+          <button class="activity-btn" data-view="search" title="Search (Ctrl+Shift+F)">⌕</button>
+          <button class="activity-btn" data-view="git" title="Source control (Ctrl+Shift+G)">⑂</button>
           <button class="activity-btn" data-view="sessions" title="Sessions">◷</button>
           <div class="spacer"></div>
-          <button class="activity-btn" id="toggle-ai" title="Toggle assistant">✦</button>
+          <button class="activity-btn" id="open-settings" title="Settings">⚙</button>
+          <button class="activity-btn" id="toggle-ai" title="Toggle assistant (Ctrl+I)">✦</button>
         </nav>
 
         <aside id="sidebar">
           <div class="sidebar-head">
             <span id="sidebar-title">Explorer</span>
-            <button class="ghost tiny" id="refresh-tree" title="Refresh">⟳</button>
+            <span id="sidebar-actions" class="sidebar-actions"></span>
           </div>
+
           <div id="tree" class="tree"></div>
+
+          <div id="search-panel" class="panel-body hidden">
+            <input id="search-input" type="text" placeholder="Search in files" autocomplete="off" />
+            <div id="search-results" class="results"></div>
+          </div>
+
+          <div id="git-panel" class="panel-body hidden">
+            <div class="git-head">
+              <span id="git-branch" title="Current branch">—</span>
+              <span class="git-actions">
+                <button id="git-sync" class="ghost tiny" title="Pull then push">Sync</button>
+                <button id="git-refresh" class="ghost tiny" title="Refresh">⟳</button>
+              </span>
+            </div>
+            <div id="git-files" class="results"></div>
+            <div class="commit-box">
+              <textarea id="commit-message" rows="3" placeholder="Commit message"></textarea>
+              <button id="commit-button" class="primary">Commit</button>
+            </div>
+          </div>
+
           <div id="sessions" class="tree hidden"></div>
         </aside>
 
@@ -53,7 +78,8 @@
               <p>A light IDE with an agent that can edit your files.</p>
               <ul>
                 <li><kbd>Ctrl</kbd>+<kbd>P</kbd> quick open</li>
-                <li><kbd>Ctrl</kbd>+<kbd>S</kbd> save file</li>
+                <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> search in files</li>
+                <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> source control</li>
                 <li><kbd>Ctrl</kbd>+<kbd>`</kbd> terminal</li>
                 <li><kbd>Ctrl</kbd>+<kbd>I</kbd> focus the assistant</li>
               </ul>
@@ -96,9 +122,10 @@
       <footer id="statusbar">
         <div class="status-left">
           <span id="status-provider">no model</span>
-          <span id="status-session"></span>
+          <span id="status-git"></span>
         </div>
         <div class="status-right">
+          <span id="status-session"></span>
           <span id="status-path"></span>
           <span id="status-position"></span>
           <span id="status-language"></span>
@@ -110,6 +137,40 @@
       <input id="quick-open-input" type="text" placeholder="Search files by name" autocomplete="off" />
       <ul id="quick-open-results"></ul>
     </div>
+
+    <div id="settings-modal" class="modal hidden">
+      <div class="dialog">
+        <h2>Settings</h2>
+        <label class="field">
+          <span>Editor font size</span>
+          <input id="setting-font-size" type="number" min="10" max="22" step="1" />
+        </label>
+        <label class="field">
+          <span>Ask before edits and commands</span>
+          <input id="setting-approve" type="checkbox" />
+        </label>
+        <label class="field">
+          <span>Model</span>
+          <input id="setting-model" type="text" />
+        </label>
+        <div class="dialog-actions">
+          <button id="settings-close" class="ghost">Close</button>
+          <button id="settings-save" class="primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="diff-modal" class="modal hidden">
+      <div class="dialog wide">
+        <h2 id="diff-title">Diff</h2>
+        <pre id="diff-body" class="diff-body"></pre>
+        <div class="dialog-actions">
+          <button id="diff-close" class="ghost">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="context-menu" class="context-menu hidden"></div>
 
     <script src="/app.js" defer></script>
   </body>

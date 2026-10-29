@@ -1,7 +1,7 @@
 {
   "name": "eschaton-code",
-  "version": "3.0.0",
-  "description": "A light browser IDE with a coding agent that edits your files",
+  "version": "3.1.0",
+  "description": "Terminal coding agent with native tool calling, sessions and a free-tier model router",
   "type": "module",
   "bin": {
     "eschaton": "dist/eschaton.js"

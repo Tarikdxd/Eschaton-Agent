@@ -1,15 +1,15 @@
 import readline from 'node:readline'
 import process from 'node:process'
+import { execSync } from 'node:child_process'
 import {
   CodingAgent,
   MODES,
   type Mode,
-  type ToolCall,
   type ToolPreview,
   type ToolResult,
 } from '../agent/coding-agent.js'
-import { ProviderPool } from '../llm/providers.js'
-import { latestSession, loadSession, saveSession } from '../session.js'
+import { ProviderPool, type ToolCall, type Usage } from '../llm/providers.js'
+import { latestSession, listSessions, loadSession, saveSession } from '../session.js'
 import { c, sym } from './theme.js'
 import {
   failLine,
@@ -48,6 +48,8 @@ export class TerminalUI {
   private lastSigint = 0
   private sessionId: string
   private resumedCount = 0
+  private totalUsage: Usage = { promptTokens: 0, completionTokens: 0 }
+  private turns = 0
 
   constructor(pool: ProviderPool, options: TerminalOptions) {
     this.pool = pool
@@ -192,6 +194,10 @@ export class TerminalUI {
       this.stopSpinner()
       if (this.streamed) process.stdout.write('\n')
 
+      this.turns++
+      this.totalUsage.promptTokens = (this.totalUsage.promptTokens ?? 0) + (result.usage.promptTokens ?? 0)
+      this.totalUsage.completionTokens = (this.totalUsage.completionTokens ?? 0) + (result.usage.completionTokens ?? 0)
+
       const tokens = formatTokens(result.usage.promptTokens, result.usage.completionTokens)
       const parts = [
         formatDuration(Date.now() - started),
@@ -225,7 +231,7 @@ export class TerminalUI {
       this.streamed = false
     }
 
-    process.stdout.write(`\n  ${toolLine(call.tool, detailOf(preview))}\n`)
+    process.stdout.write(`\n  ${toolLine(call.name, detailOf(preview))}\n`)
 
     if (preview.needsApproval) {
       process.stdout.write(`${previewHeader(preview)}\n`)
@@ -283,26 +289,16 @@ export class TerminalUI {
     return answer === '' || answer === 'y' || answer === 'yes'
   }
 
-  /** Asks a question while the main interface is paused. */
+  /**
+   * Asks on the existing interface. The run loop is busy while this happens, so
+   * the reply is not mistaken for a new prompt.
+   */
   private ask(question: string): Promise<string> {
-    const main = this.rl
-    main?.pause()
+    const rl = this.rl
+    if (!rl) return Promise.resolve('')
 
     return new Promise((resolve) => {
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true })
-      let settled = false
-
-      const finish = (answer: string) => {
-        if (settled) return
-        settled = true
-        rl.close()
-        main?.resume()
-        main?.prompt()
-        resolve(answer)
-      }
-
-      rl.on('SIGINT', () => finish('n'))
-      rl.question(question, (answer) => finish(answer.trim()))
+      rl.question(question, (answer) => resolve(answer.trim()))
     })
   }
 
@@ -335,9 +331,129 @@ export class TerminalUI {
       case 'session':
         process.stdout.write(c.dim(`  session ${this.sessionId}`) + '\n')
         return
+      case 'undo':
+        this.undo()
+        return
+      case 'diff':
+        this.showDiff()
+        return
+      case 'cost':
+        this.showCost()
+        return
+      case 'sessions':
+        this.showSessions()
+        return
+      case 'resume':
+        this.resume(argument)
+        return
+      case 'compact':
+        await this.compact()
+        return
+      case 'init':
+        await this.runTask(
+          'Create an AGENTS.md in the project root describing how to build, test and navigate this repository. Read the README, package.json or equivalent first. Keep it under 60 lines.',
+        )
+        return
       default:
         process.stdout.write(c.dim(`  unknown command /${command}, try /help`) + '\n')
     }
+  }
+
+  private undo(): void {
+    const entry = this.agent.undoLast()
+    if (!entry) {
+      process.stdout.write(c.dim('  nothing to undo') + '\n')
+      return
+    }
+
+    process.stdout.write(`  ${c.green(sym.ok)} restored ${c.bold(entry.path)}\n`)
+  }
+
+  private showDiff(): void {
+    try {
+      const stat = execSync('git diff --stat', { cwd: this.options.cwd, encoding: 'utf-8' })
+      const diff = execSync('git diff', { cwd: this.options.cwd, encoding: 'utf-8', maxBuffer: 4 * 1024 * 1024 })
+
+      if (!stat.trim()) {
+        process.stdout.write(c.dim('  working tree is clean') + '\n')
+        return
+      }
+
+      process.stdout.write('\n' + c.dim(stat.trimEnd()) + '\n\n')
+      for (const line of diff.split('\n').slice(0, 200)) {
+        const painted = line.startsWith('+')
+          ? c.green(line)
+          : line.startsWith('-')
+            ? c.red(line)
+            : line.startsWith('@@')
+              ? c.cyan(line)
+              : c.dim(line)
+        process.stdout.write(`  ${painted}\n`)
+      }
+      process.stdout.write('\n')
+    } catch {
+      process.stdout.write(c.dim('  not a git repository') + '\n')
+    }
+  }
+
+  private showCost(): void {
+    const prompt = this.totalUsage.promptTokens ?? 0
+    const completion = this.totalUsage.completionTokens ?? 0
+    process.stdout.write(
+      c.dim(`  ${this.turns} turn${this.turns === 1 ? '' : 's'} ${sym.dot} ${prompt} in ${sym.dot} ${completion} out`) + '\n',
+    )
+  }
+
+  private showSessions(): void {
+    const sessions = listSessions()
+      .filter((session) => session.cwd === this.options.cwd)
+      .slice(0, 10)
+
+    if (!sessions.length) {
+      process.stdout.write(c.dim('  no sessions for this directory') + '\n')
+      return
+    }
+
+    process.stdout.write('\n')
+    sessions.forEach((session, index) => {
+      const messages = session.messages.filter((message) => message.role === 'user').length
+      const current = session.id === this.sessionId ? c.cyan('*') : ' '
+      process.stdout.write(
+        `  ${current} ${index + 1}. ${new Date(session.createdAt).toLocaleString()} ${c.dim(`${messages} messages ${sym.dot} ${session.mode}`)}\n`,
+      )
+    })
+    process.stdout.write('\n' + c.dim('  /resume <number> to load one') + '\n')
+  }
+
+  private resume(argument: string): void {
+    const sessions = listSessions().filter((session) => session.cwd === this.options.cwd)
+    const index = Number(argument) - 1
+    const session = sessions[index]
+
+    if (!session) {
+      process.stdout.write(c.dim('  usage: /resume <number from /sessions>') + '\n')
+      return
+    }
+
+    this.sessionId = session.id
+    this.agent.setMode((session.mode as Mode) ?? 'Build')
+    this.agent.setHistory(session.messages)
+    this.setPrompt()
+
+    process.stdout.write(`  ${c.green(sym.ok)} resumed ${new Date(session.createdAt).toLocaleString()}\n`)
+  }
+
+  private async compact(): Promise<void> {
+    this.startSpinner()
+    try {
+      const summary = await this.agent.compact()
+      this.stopSpinner()
+      process.stdout.write(c.dim(`  compacted to ${summary.length} characters`) + '\n')
+    } catch (err: any) {
+      this.stopSpinner()
+      process.stdout.write(`  ${c.red('error')} ${err?.message ?? err}\n`)
+    }
+    this.persist()
   }
 
   private setMode(argument: string): void {
@@ -395,7 +511,13 @@ export class TerminalUI {
       ['/mode [name]', 'build, plan, review, fast (cycles when empty)'],
       ['/model [name]', 'show or set the model for the active provider'],
       ['/providers [n]', 'list providers, or switch to number n'],
-      ['/session', 'show the current session id'],
+      ['/init', 'write an AGENTS.md for this project'],
+      ['/diff', 'show the working tree diff'],
+      ['/undo', 'revert the last file the agent changed'],
+      ['/compact', 'summarize the conversation to free context'],
+      ['/cost', 'tokens used in this session'],
+      ['/sessions', 'list saved sessions for this directory'],
+      ['/resume <n>', 'load a saved session'],
       ['/clear', 'forget the conversation'],
       ['/exit', 'leave'],
     ]

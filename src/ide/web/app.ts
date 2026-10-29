@@ -13,9 +13,14 @@ type Tab = { path: string; model: any; dirty: boolean; saved: string; viewState?
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T
 
+const settings = {
+  fontSize: Number(localStorage.getItem('eschaton.fontSize') ?? 13),
+  autoApprove: localStorage.getItem('eschaton.autoApprove') === '1',
+  model: localStorage.getItem('eschaton.model') ?? '',
+}
+
 const state = {
   cwd: '',
-  model: null as string | null,
   provider: null as string | null,
   sessionId: null as string | null,
   mode: 'Build',
@@ -36,7 +41,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
   })
-  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? `HTTP ${res.status}`)
+  if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as any)?.error ?? `HTTP ${res.status}`)
   return (await res.json()) as T
 }
 
@@ -75,7 +80,7 @@ async function initEditor(): Promise<void> {
   editor = monaco.editor.create($('editor'), {
     theme: 'eschaton-dark',
     automaticLayout: true,
-    fontSize: 13,
+    fontSize: settings.fontSize,
     fontFamily: "'Cascadia Code', 'JetBrains Mono', Consolas, monospace",
     minimap: { enabled: false },
     scrollBeyondLastLine: false,
@@ -99,21 +104,30 @@ async function initEditor(): Promise<void> {
   })
 
   editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => void saveActive())
-
-  monaco.editor.onDidChangeMarkers?.(() => {})
 }
 
-async function openFile(path: string): Promise<void> {
+async function openFile(path: string, line?: number): Promise<void> {
   const existing = state.tabs.get(path)
-  if (existing) return activate(path)
+  if (existing) {
+    activate(path)
+    if (line) reveal(line)
+    return
+  }
 
   const { content } = await api<{ content: string }>(`/api/file?path=${encodeURIComponent(path)}`)
   const uri = monaco.Uri.file(path)
   let model = monaco.editor.getModel(uri)
   if (!model) model = monaco.editor.createModel(content, languageOf(path), uri)
 
-  state.tabs.set(path, { path, model, dirty: false, saved: content } as Tab)
+  state.tabs.set(path, { path, model, dirty: false, saved: content })
   activate(path)
+  if (line) reveal(line)
+}
+
+function reveal(line: number): void {
+  editor.revealLineInCenter(line)
+  editor.setPosition({ lineNumber: line, column: 1 })
+  editor.focus()
 }
 
 function activate(path: string): void {
@@ -148,21 +162,20 @@ async function saveActive(): Promise<void> {
   tab.saved = tab.model.getValue()
   tab.dirty = false
   renderTabs()
-  $('composer-hint').textContent = `saved ${path}`
 }
 
 function closeTab(path: string): void {
   const tab = state.tabs.get(path)
   if (!tab) return
-
   if (tab.dirty && !confirm(`${path} has unsaved changes. Close it?`)) return
 
   state.tabs.delete(path)
   if (state.active === path) {
     state.active = null
     const next = [...state.tabs.keys()].pop()
-    if (next) activate(next)
-    else {
+    if (next) {
+      activate(next)
+    } else {
       editor.setModel(null)
       $('editor').style.visibility = 'hidden'
       $('welcome').classList.remove('hidden')
@@ -248,7 +261,7 @@ async function loadTree(): Promise<void> {
   renderTree()
 }
 
-function buildTree(): Array<{ name: string; path: string; dir: boolean; children?: any[] }> {
+function buildTree(): any[] {
   const rootNodes: any[] = []
   const index = new Map<string, any>()
 
@@ -306,6 +319,11 @@ function renderTree(): void {
         }
       }
 
+      row.oncontextmenu = (event) => {
+        event.preventDefault()
+        showContextMenu(event.clientX, event.clientY, node)
+      }
+
       parent.append(row)
 
       if (node.dir && state.expanded.has(node.path)) {
@@ -326,6 +344,255 @@ function highlightTree(): void {
   }
 }
 
+function showContextMenu(x: number, y: number, node: { path: string; dir: boolean }): void {
+  const menu = $('context-menu')
+  menu.innerHTML = ''
+  menu.classList.remove('hidden')
+  menu.style.left = `${x}px`
+  menu.style.top = `${y}px`
+
+  const items: Array<[string, () => void]> = [
+    ['New file', () => void createEntry(node.dir ? node.path : dirOf(node.path), false)],
+    ['New folder', () => void createEntry(node.dir ? node.path : dirOf(node.path), true)],
+    ['Rename', () => void renameEntry(node.path)],
+    ['Delete', () => void deleteEntry(node.path)],
+  ]
+
+  for (const [label, action] of items) {
+    const item = document.createElement('div')
+    item.className = 'context-item'
+    item.textContent = label
+    item.onclick = () => {
+      menu.classList.add('hidden')
+      action()
+    }
+    menu.append(item)
+  }
+
+  const close = () => {
+    menu.classList.add('hidden')
+    document.removeEventListener('click', close)
+  }
+  setTimeout(() => document.addEventListener('click', close), 0)
+}
+
+function dirOf(path: string): string {
+  return path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
+}
+
+function join(dir: string, name: string): string {
+  return dir ? `${dir}/${name}` : name
+}
+
+async function createEntry(dir: string, isDir: boolean): Promise<void> {
+  const name = await askText(isDir ? 'New folder name' : 'New file name', '')
+  if (!name) return
+
+  const target = join(dir, name)
+  try {
+    await api('/api/file', { method: 'POST', body: JSON.stringify({ path: target, dir: isDir }) })
+    if (dir) state.expanded.add(dir)
+    await loadTree()
+    if (!isDir) await openFile(target)
+  } catch (err: any) {
+    alert(String(err.message ?? err))
+  }
+}
+
+async function renameEntry(path: string): Promise<void> {
+  const name = await askText('Rename', path.split('/').pop() ?? path)
+  if (!name) return
+
+  const target = join(dirOf(path), name)
+  if (target === path) return
+
+  try {
+    await api('/api/rename', { method: 'POST', body: JSON.stringify({ from: path, to: target }) })
+    if (state.tabs.has(path)) closeTab(path)
+    await loadTree()
+  } catch (err: any) {
+    alert(String(err.message ?? err))
+  }
+}
+
+async function deleteEntry(path: string): Promise<void> {
+  if (!confirm(`Delete ${path}?`)) return
+
+  try {
+    await api(`/api/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+    if (state.tabs.has(path)) {
+      state.tabs.delete(path)
+      if (state.active === path) {
+        editor.setModel(null)
+        $('editor').style.visibility = 'hidden'
+        $('welcome').classList.remove('hidden')
+      }
+      renderTabs()
+    }
+    await loadTree()
+  } catch (err: any) {
+    alert(String(err.message ?? err))
+  }
+}
+
+/* --------------------------------------------------------------- search */
+
+let searchTimer: number | undefined
+
+function initSearch(): void {
+  const input = $('search-input') as HTMLInputElement
+
+  input.oninput = () => {
+    window.clearTimeout(searchTimer)
+    searchTimer = window.setTimeout(() => void runSearch(input.value.trim()), 250)
+  }
+
+  input.onkeydown = (event) => {
+    if (event.key === 'Enter') void runSearch(input.value.trim())
+  }
+}
+
+async function runSearch(query: string): Promise<void> {
+  const container = $('search-results')
+  container.innerHTML = ''
+
+  if (!query) return
+
+  const { results } = await api<{ results: Array<{ path: string; line: number; text: string }> }>(
+    `/api/search?q=${encodeURIComponent(query)}`,
+  )
+
+  const header = document.createElement('div')
+  header.className = 'results-head'
+  header.textContent = `${results.length} result${results.length === 1 ? '' : 's'}`
+  container.append(header)
+
+  for (const result of results) {
+    const row = document.createElement('div')
+    row.className = 'result'
+    row.innerHTML = `<span class="result-path">${escapeHtml(result.path)}:${result.line}</span><span class="result-text">${escapeHtml(
+      result.text,
+    )}</span>`
+    row.onclick = () => void openFile(result.path, result.line)
+    container.append(row)
+  }
+}
+
+/* ------------------------------------------------------------------ git */
+
+let gitFiles: Array<{ path: string; status: string; staged: boolean }> = []
+
+function initGit(): void {
+  $('git-refresh').onclick = () => void refreshGit()
+  $('git-sync').onclick = () => void syncGit()
+  $('commit-button').onclick = () => void commitGit()
+}
+
+async function refreshGit(): Promise<void> {
+  try {
+    const status = await api<any>('/api/git/status')
+    if (!status.isRepo) {
+      $('git-branch').textContent = 'not a git repository'
+      $('git-files').innerHTML = ''
+      $('status-git').textContent = ''
+      return
+    }
+
+    gitFiles = status.files
+    $('git-branch').textContent = `${status.branch}${status.ahead ? ` ↑${status.ahead}` : ''}${status.behind ? ` ↓${status.behind}` : ''}`
+    $('status-git').textContent = `⑂ ${status.branch}`
+    renderGitFiles()
+  } catch {
+    // Git is optional.
+  }
+}
+
+function renderGitFiles(): void {
+  const container = $('git-files')
+  container.innerHTML = ''
+
+  if (!gitFiles.length) {
+    container.innerHTML = '<div class="results-head">No changes</div>'
+    return
+  }
+
+  for (const file of gitFiles) {
+    const row = document.createElement('div')
+    row.className = 'result git-file'
+
+    const check = document.createElement('input')
+    check.type = 'checkbox'
+    check.checked = file.staged
+    check.title = 'Stage'
+    check.onclick = async (event) => {
+      event.stopPropagation()
+      await api('/api/git/stage', {
+        method: 'POST',
+        body: JSON.stringify({ path: file.path, staged: check.checked }),
+      })
+      void refreshGit()
+    }
+
+    const name = document.createElement('span')
+    name.className = 'git-name'
+    name.textContent = file.path
+
+    const badge = document.createElement('span')
+    badge.className = `git-status status-${file.status.replace(/\s/g, '')}`
+    badge.textContent = file.status
+
+    row.append(check, badge, name)
+    row.onclick = () => void showDiff(file.path, file.staged)
+    container.append(row)
+  }
+}
+
+async function showDiff(path: string, staged: boolean): Promise<void> {
+  const { diff } = await api<{ diff: string }>(
+    `/api/git/diff?path=${encodeURIComponent(path)}&staged=${staged ? '1' : '0'}`,
+  )
+
+  $('diff-title').textContent = `${path}${staged ? ' (staged)' : ''}`
+  $('diff-body').innerHTML = diff
+    ? diff
+        .split('\n')
+        .map((line) => {
+          const cls = line.startsWith('+') ? 'diff-add' : line.startsWith('-') ? 'diff-del' : line.startsWith('@@') ? 'diff-hunk' : ''
+          return `<span class="${cls}">${escapeHtml(line)}</span>`
+        })
+        .join('\n')
+    : 'No changes.'
+
+  $('diff-modal').classList.remove('hidden')
+}
+
+async function commitGit(): Promise<void> {
+  const message = ($('commit-message') as HTMLTextAreaElement).value.trim()
+  if (!message) return alert('Write a commit message first.')
+
+  const result = await api<any>('/api/git/commit', { method: 'POST', body: JSON.stringify({ message }) })
+  if (!result.ok) alert(result.output || 'Commit failed')
+
+  ;($('commit-message') as HTMLTextAreaElement).value = ''
+  await refreshGit()
+}
+
+async function syncGit(): Promise<void> {
+  const button = $('git-sync') as HTMLButtonElement
+  button.disabled = true
+  try {
+    const result = await api<any>('/api/git/sync', { method: 'POST' })
+    $('diff-title').textContent = 'Sync'
+    $('diff-body').textContent = result.output || 'Up to date.'
+    $('diff-modal').classList.remove('hidden')
+    await refreshGit()
+  } catch (err: any) {
+    alert(String(err.message ?? err))
+  } finally {
+    button.disabled = false
+  }
+}
+
 /* ------------------------------------------------------------- sessions */
 
 async function loadSessions(): Promise<void> {
@@ -334,7 +601,7 @@ async function loadSessions(): Promise<void> {
   container.innerHTML = ''
 
   if (!data.sessions.length) {
-    container.innerHTML = '<div class="row">No sessions yet</div>'
+    container.innerHTML = '<div class="results-head">No sessions yet</div>'
     return
   }
 
@@ -354,6 +621,7 @@ async function loadSessions(): Promise<void> {
       state.mode = session.mode
       ;($('mode') as HTMLSelectElement).value = session.mode
       $('session-line').textContent = session.id
+      $('status-session').textContent = session.id.slice(0, 8)
       $('messages').innerHTML = ''
       appendMessage('assistant', `Resumed session from ${new Date(session.createdAt).toLocaleString()}. Continue the conversation.`)
       loadSessions()
@@ -422,7 +690,7 @@ async function send(): Promise<void> {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId: state.sessionId, message, mode: state.mode }),
+      body: JSON.stringify({ sessionId: state.sessionId, message, mode: state.mode, autoApprove: settings.autoApprove }),
     })
     if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
@@ -447,6 +715,7 @@ async function send(): Promise<void> {
           if (event.type === 'start') {
             state.sessionId = event.sessionId
             $('session-line').textContent = event.sessionId
+            $('status-session').textContent = String(event.sessionId).slice(0, 8)
           }
 
           if (event.type === 'token') {
@@ -483,11 +752,12 @@ async function send(): Promise<void> {
     if (assistant) formatAssistant(assistant)
     void loadSessions()
     void refreshOpenFiles()
+    void loadTree()
+    void refreshGit()
   }
 }
 
 function addToolCard(event: any): void {
-  // Calls that need approval get a single card, created by addApproval.
   if (event.preview?.needsApproval) return
 
   const card = document.createElement('div')
@@ -513,7 +783,10 @@ function addToolCard(event: any): void {
 
 function updateToolCard(event: any): void {
   const cards = document.querySelectorAll<HTMLElement>('.tool-card')
-  const card = [...cards].reverse().find((item) => item.dataset.name === event.name && item.querySelector('.status')?.textContent === '…')
+  const card = [...cards]
+    .reverse()
+    .find((item) => item.dataset.name === event.name && item.querySelector('.status')?.textContent === '…')
+
   if (card) {
     const status = card.querySelector('.status') as HTMLElement
     status.textContent = event.isError ? 'failed' : 'done'
@@ -534,9 +807,9 @@ function addApproval(event: any): void {
   card.className = 'tool-card'
   card.dataset.name = event.tool
 
+  const path = event.preview?.path ?? event.preview?.command ?? ''
   const head = document.createElement('div')
   head.className = 'head'
-  const path = event.preview?.path ?? event.preview?.command ?? ''
   head.innerHTML = `<span class="name">${escapeHtml(event.tool)}</span><span>${escapeHtml(path)}</span><span class="status">…</span>`
   card.append(head)
 
@@ -577,8 +850,29 @@ function addApproval(event: any): void {
 
   actions.append(allow, deny)
   card.append(actions)
+
+  if (event.preview?.after !== undefined && event.preview?.path) {
+    const revert = document.createElement('button')
+    revert.className = 'ghost tiny'
+    revert.textContent = 'Revert after run'
+    revert.dataset.before = event.preview.before ?? ''
+    revert.dataset.path = event.preview.path
+    revert.onclick = () => void revertEdit(event.preview.path, event.preview.before)
+    card.append(revert)
+  }
+
   $('messages').append(card)
   $('messages').scrollTop = $('messages').scrollHeight
+}
+
+async function revertEdit(path: string, before: string | undefined): Promise<void> {
+  if (before === undefined) {
+    await api(`/api/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' })
+  } else {
+    await api('/api/file', { method: 'PUT', body: JSON.stringify({ path, content: before }) })
+  }
+  await refreshOpenFiles()
+  await loadTree()
 }
 
 async function refreshOpenFiles(): Promise<void> {
@@ -682,7 +976,7 @@ function initTerminal(): void {
       return
     }
 
-    if (data >= ' ' && data !== '\x7f') {
+    if (data >= ' ') {
       input += data
       term.write(data)
     }
@@ -694,7 +988,7 @@ function initTerminal(): void {
   }
 }
 
-/* -------------------------------------------------------------- wiring */
+/* -------------------------------------------------------------- dialogs */
 
 function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[char]!)
@@ -722,6 +1016,40 @@ function renderDiffHtml(before: string, after: string): string {
     ...removed.map((line) => `<span class="diff-del">- ${escapeHtml(line)}</span>`),
     ...added.map((line) => `<span class="diff-add">+ ${escapeHtml(line)}</span>`),
   ].join('\n')
+}
+
+function askText(title: string, value: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const modal = document.createElement('div')
+    modal.className = 'modal'
+    modal.innerHTML = `
+      <div class="dialog">
+        <h2>${escapeHtml(title)}</h2>
+        <input class="dialog-input" type="text" />
+        <div class="dialog-actions">
+          <button class="ghost cancel">Cancel</button>
+          <button class="primary ok">OK</button>
+        </div>
+      </div>`
+
+    document.body.append(modal)
+    const input = modal.querySelector('.dialog-input') as HTMLInputElement
+    input.value = value
+    input.focus()
+    input.select()
+
+    const finish = (result: string | null) => {
+      modal.remove()
+      resolve(result)
+    }
+
+    modal.querySelector('.cancel')!.addEventListener('click', () => finish(null))
+    modal.querySelector('.ok')!.addEventListener('click', () => finish(input.value.trim() || null))
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') finish(input.value.trim() || null)
+      if (event.key === 'Escape') finish(null)
+    })
+  })
 }
 
 function initQuickOpen(): void {
@@ -789,10 +1117,90 @@ function score(path: string, query: string): number {
   return 10
 }
 
+function initSettings(): void {
+  const modal = $('settings-modal')
+
+  $('open-settings').onclick = () => {
+    ;($('setting-font-size') as HTMLInputElement).value = String(settings.fontSize)
+    ;($('setting-approve') as HTMLInputElement).checked = !settings.autoApprove
+    ;($('setting-model') as HTMLInputElement).value = settings.model || ''
+    modal.classList.remove('hidden')
+  }
+
+  $('settings-close').onclick = () => modal.classList.add('hidden')
+
+  $('settings-save').onclick = async () => {
+    settings.fontSize = Number(($('setting-font-size') as HTMLInputElement).value) || 13
+    settings.autoApprove = !($('setting-approve') as HTMLInputElement).checked
+    settings.model = ($('setting-model') as HTMLInputElement).value.trim()
+
+    localStorage.setItem('eschaton.fontSize', String(settings.fontSize))
+    localStorage.setItem('eschaton.autoApprove', settings.autoApprove ? '1' : '0')
+    localStorage.setItem('eschaton.model', settings.model)
+
+    editor.updateOptions({ fontSize: settings.fontSize })
+    if (settings.model) {
+      await api('/api/model', { method: 'POST', body: JSON.stringify({ model: settings.model }) })
+      $('status-provider').textContent = `${state.provider ?? 'model'} · ${settings.model}`
+    }
+
+    modal.classList.add('hidden')
+  }
+
+  $('diff-close').onclick = () => $('diff-modal').classList.add('hidden')
+}
+
+/* -------------------------------------------------------------- wiring */
+
+function switchView(view: string): void {
+  document.querySelectorAll('.activity-btn[data-view]').forEach((item) => item.classList.remove('active'))
+  document.querySelector(`.activity-btn[data-view="${view}"]`)?.classList.add('active')
+
+  for (const panel of ['tree', 'search-panel', 'git-panel', 'sessions']) {
+    $(panel).classList.toggle('hidden', panel !== view && !(view === 'explorer' && panel === 'tree'))
+  }
+
+  const titles: Record<string, string> = {
+    explorer: 'Explorer',
+    search: 'Search',
+    git: 'Source control',
+    sessions: 'Sessions',
+  }
+  $('sidebar-title').textContent = titles[view] ?? view
+
+  const actions = $('sidebar-actions')
+  actions.innerHTML = ''
+
+  if (view === 'explorer') {
+    const newFile = document.createElement('button')
+    newFile.className = 'ghost tiny'
+    newFile.textContent = '＋'
+    newFile.title = 'New file'
+    newFile.onclick = () => void createEntry('', false)
+
+    const newFolder = document.createElement('button')
+    newFolder.className = 'ghost tiny'
+    newFolder.textContent = '▣'
+    newFolder.title = 'New folder'
+    newFolder.onclick = () => void createEntry('', true)
+
+    const refresh = document.createElement('button')
+    refresh.className = 'ghost tiny'
+    refresh.textContent = '⟳'
+    refresh.title = 'Refresh'
+    refresh.onclick = () => void loadTree()
+
+    actions.append(newFile, newFolder, refresh)
+  }
+
+  if (view === 'search') ($('search-input') as HTMLInputElement).focus()
+  if (view === 'git') void refreshGit()
+  if (view === 'sessions') void loadSessions()
+}
+
 async function init(): Promise<void> {
   const status = await api<any>('/api/state')
   state.cwd = status.cwd
-  state.model = status.model
   state.provider = status.provider
 
   $('workspace-name').textContent = status.name
@@ -802,9 +1210,13 @@ async function init(): Promise<void> {
   await initEditor()
   initTerminal()
   initQuickOpen()
+  initSearch()
+  initGit()
+  initSettings()
 
   await loadTree()
   await loadSessions()
+  await refreshGit()
 
   $('send').onclick = () => void send()
 
@@ -823,52 +1235,53 @@ async function init(): Promise<void> {
   $('new-session').onclick = () => {
     state.sessionId = null
     $('session-line').textContent = 'new session'
+    $('status-session').textContent = ''
     $('messages').innerHTML = ''
     void loadSessions()
   }
 
-  $('refresh-tree').onclick = () => void loadTree()
-
   document.querySelectorAll<HTMLElement>('.activity-btn[data-view]').forEach((button) => {
-    button.onclick = () => {
-      const view = button.dataset.view
-      document.querySelectorAll('.activity-btn[data-view]').forEach((item) => item.classList.remove('active'))
-      button.classList.add('active')
-
-      $('tree').classList.toggle('hidden', view !== 'explorer')
-      $('sessions').classList.toggle('hidden', view !== 'sessions')
-      $('sidebar-title').textContent = view === 'explorer' ? 'Explorer' : 'Sessions'
-      if (view === 'sessions') void loadSessions()
-    }
+    button.onclick = () => switchView(button.dataset.view!)
   })
 
   $('toggle-ai').onclick = () => {
     $('ai').classList.toggle('hidden')
-    const grid = $('body')
-    grid.style.gridTemplateColumns = $('ai').classList.contains('hidden')
+    const hidden = $('ai').classList.contains('hidden')
+    $('body').style.gridTemplateColumns = hidden
       ? '48px 250px minmax(0, 1fr)'
       : '48px 250px minmax(0, 1fr) 380px'
     editor?.layout()
   }
 
   window.addEventListener('keydown', (event) => {
-    if (event.ctrlKey && event.key.toLowerCase() === 'p') {
+    const ctrl = event.ctrlKey || event.metaKey
+
+    if (ctrl && event.key.toLowerCase() === 'p') {
       event.preventDefault()
       $('quick-open').click()
     }
-    if (event.ctrlKey && event.key === '`') {
+    if (ctrl && event.shiftKey && event.key.toLowerCase() === 'f') {
+      event.preventDefault()
+      switchView('search')
+      ;($('search-input') as HTMLInputElement).focus()
+    }
+    if (ctrl && event.shiftKey && event.key.toLowerCase() === 'g') {
+      event.preventDefault()
+      switchView('git')
+    }
+    if (ctrl && event.key === '`') {
       event.preventDefault()
       $('panel').classList.toggle('hidden')
       editor?.layout()
     }
-    if (event.ctrlKey && event.key.toLowerCase() === 'i') {
+    if (ctrl && event.key.toLowerCase() === 'i') {
       event.preventDefault()
       prompt.focus()
+    }
+    if (event.key === 'Escape') {
+      for (const modal of ['quick-open-modal', 'settings-modal', 'diff-modal']) $(modal).classList.add('hidden')
     }
   })
 }
 
 void init()
-
-
-

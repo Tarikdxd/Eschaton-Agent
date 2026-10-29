@@ -1,9 +1,9 @@
 /**
  * Provider layer.
  *
- * Every provider speaks the OpenAI chat completions protocol, so one request
- * shape works for hosted APIs and local servers. Providers are tried in order
- * and the pool falls over to the next one when a request fails.
+ * Every provider speaks the OpenAI chat completions protocol, including the
+ * `tools` parameter. Providers are tried in order and the pool falls over to
+ * the next one when a request fails.
  *
  * Keys come from environment variables or from ~/.eschaton/config.json.
  * Local servers are discovered by probing their /models endpoint.
@@ -11,9 +11,27 @@
 
 import { loadSettings, type Settings } from '../config.js'
 
+export interface ToolCall {
+  id: string
+  name: string
+  arguments: string
+}
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
+  tool_call_id?: string
+  tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
+  name?: string
+}
+
+export interface ToolSpec {
+  type: 'function'
+  function: {
+    name: string
+    description: string
+    parameters: Record<string, unknown>
+  }
 }
 
 export interface Usage {
@@ -29,12 +47,14 @@ export interface Provider {
   apiKey?: string
   headers?: Record<string, string>
   local: boolean
-  /** Timestamp until which this provider is skipped after a failure. */
+  /** Ordering hint: free tiers are tried before paid ones. */
+  free?: boolean
   cooldownUntil: number
 }
 
 export interface GenerateOptions {
   messages: ChatMessage[]
+  tools?: ToolSpec[]
   temperature?: number
   maxTokens?: number
   signal?: AbortSignal
@@ -44,11 +64,12 @@ export interface GenerateOptions {
 
 export interface GenerateResult {
   text: string
+  toolCalls: ToolCall[]
   usage?: Usage
   provider: string
 }
 
-type Kind = 'deepseek' | 'openrouter' | 'groq' | 'ollama' | 'lmstudio' | 'custom'
+type Kind = 'openrouter' | 'gemini' | 'groq' | 'deepseek' | 'ollama' | 'lmstudio' | 'custom'
 
 interface KindDefaults {
   label: string
@@ -56,27 +77,30 @@ interface KindDefaults {
   envKey: string
   model: string
   local: boolean
+  free: boolean
   headers?: Record<string, string>
 }
 
 const DEFAULTS: Record<Kind, KindDefaults> = {
-  deepseek: {
-    label: 'DeepSeek',
-    baseUrl: 'https://api.deepseek.com/chat/completions',
-    envKey: 'DEEPSEEK_API_KEY',
-    model: 'deepseek-chat',
-    local: false,
-  },
   openrouter: {
     label: 'OpenRouter',
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
     envKey: 'OPENROUTER_API_KEY',
     model: 'deepseek/deepseek-chat-v3-0324:free',
     local: false,
+    free: true,
     headers: {
       'HTTP-Referer': 'https://github.com/Tarikdxd/Eschaton-Code',
       'X-Title': 'Eschaton Code',
     },
+  },
+  gemini: {
+    label: 'Google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    envKey: 'GEMINI_API_KEY',
+    model: 'gemini-2.5-flash',
+    local: false,
+    free: true,
   },
   groq: {
     label: 'Groq',
@@ -84,6 +108,15 @@ const DEFAULTS: Record<Kind, KindDefaults> = {
     envKey: 'GROQ_API_KEY',
     model: 'deepseek-r1-distill-llama-70b',
     local: false,
+    free: true,
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/chat/completions',
+    envKey: 'DEEPSEEK_API_KEY',
+    model: 'deepseek-chat',
+    local: false,
+    free: false,
   },
   ollama: {
     label: 'Ollama',
@@ -91,6 +124,7 @@ const DEFAULTS: Record<Kind, KindDefaults> = {
     envKey: 'OLLAMA_API_KEY',
     model: 'deepseek-r1:7b',
     local: true,
+    free: true,
   },
   lmstudio: {
     label: 'LM Studio',
@@ -98,6 +132,7 @@ const DEFAULTS: Record<Kind, KindDefaults> = {
     envKey: 'LMSTUDIO_API_KEY',
     model: 'deepseek-r1-distill-qwen-7b',
     local: true,
+    free: true,
   },
   custom: {
     label: 'Custom endpoint',
@@ -105,10 +140,11 @@ const DEFAULTS: Record<Kind, KindDefaults> = {
     envKey: 'OPENAI_API_KEY',
     model: 'deepseek-chat',
     local: false,
+    free: false,
   },
 }
 
-const HOSTED: Kind[] = ['deepseek', 'openrouter', 'groq', 'custom']
+const HOSTED: Kind[] = ['openrouter', 'gemini', 'groq', 'deepseek', 'custom']
 export const LOCAL_KINDS = ['ollama', 'lmstudio'] as const
 
 function makeProvider(kind: Kind, settings: Settings, env: NodeJS.ProcessEnv): Provider | null {
@@ -125,6 +161,7 @@ function makeProvider(kind: Kind, settings: Settings, env: NodeJS.ProcessEnv): P
       model: env.OPENAI_MODEL || settings.model || defaults.model,
       apiKey,
       local: false,
+      free: false,
       cooldownUntil: 0,
     }
   }
@@ -141,6 +178,7 @@ function makeProvider(kind: Kind, settings: Settings, env: NodeJS.ProcessEnv): P
     apiKey,
     headers: defaults.headers,
     local: false,
+    free: defaults.free,
     cooldownUntil: 0,
   }
 }
@@ -228,6 +266,7 @@ export class ProviderPool {
         baseUrl: defaults.baseUrl,
         model,
         local: true,
+        free: true,
         cooldownUntil: 0,
       })
     }
@@ -273,44 +312,93 @@ export class ProviderPool {
     throw new Error(`All providers failed.\n${failures.map((line) => `  - ${line}`).join('\n')}`)
   }
 
-  private async call(provider: Provider, options: GenerateOptions): Promise<{ text: string; usage?: Usage }> {
+  private async call(
+    provider: Provider,
+    options: GenerateOptions,
+  ): Promise<{ text: string; toolCalls: ToolCall[]; usage?: Usage }> {
+    const body: Record<string, unknown> = {
+      model: provider.model,
+      messages: options.messages,
+      temperature: options.temperature ?? 0.2,
+      max_tokens: options.maxTokens ?? 4096,
+      stream: Boolean(options.onChunk),
+      ...(options.onChunk ? { stream_options: { include_usage: true } } : {}),
+    }
+
+    if (options.tools?.length) {
+      body.tools = options.tools
+      body.tool_choice = 'auto'
+    }
+
+    const response = await this.post(provider, body, options.signal)
+
+    if (response.status === 400 && options.tools?.length) {
+      const detail = await response.text().catch(() => '')
+      if (/tool|function/i.test(detail)) {
+        // Provider does not support function calling; retry without it and let
+        // the agent fall back to parsing a JSON block from the text.
+        const retryBody = { ...body }
+        delete retryBody.tools
+        delete retryBody.tool_choice
+        const retry = await this.post(provider, retryBody, options.signal)
+        return this.read(retry, options, false)
+      }
+
+      const error: any = new Error(detail.slice(0, 300) || 'HTTP 400')
+      error.status = 400
+      throw error
+    }
+
+    return this.read(response, options, Boolean(options.tools?.length))
+  }
+
+  private post(provider: Provider, body: unknown, signal?: AbortSignal): Promise<Response> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...provider.headers,
     }
     if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`
 
-    const response = await fetch(provider.baseUrl, {
+    return fetch(provider.baseUrl, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        model: provider.model,
-        messages: options.messages,
-        temperature: options.temperature ?? 0.2,
-        max_tokens: options.maxTokens ?? 4096,
-        stream: Boolean(options.onChunk),
-        ...(options.onChunk ? { stream_options: { include_usage: true } } : {}),
-      }),
-      signal: linkSignals(options.signal, 180_000),
+      body: JSON.stringify(body),
+      signal: linkSignals(signal, 180_000),
     })
+  }
 
+  private async read(
+    response: Response,
+    options: GenerateOptions,
+    allowTools: boolean,
+  ): Promise<{ text: string; toolCalls: ToolCall[]; usage?: Usage }> {
     if (!response.ok) {
-      const body = await response.text().catch(() => '')
-      const error: any = new Error(body.slice(0, 300) || `HTTP ${response.status}`)
+      const detail = await response.text().catch(() => '')
+      const error: any = new Error(detail.slice(0, 300) || `HTTP ${response.status}`)
       error.status = response.status
       throw error
     }
 
-    if (!options.onChunk || !response.body) {
+    const contentType = response.headers.get('content-type') ?? ''
+    const isStream = contentType.includes('event-stream')
+
+    if (!options.onChunk || !response.body || !isStream) {
       const json = (await response.json()) as any
-      const text: string = json.choices?.[0]?.message?.content ?? ''
-      if (options.onChunk && text) options.onChunk(text)
-      return { text, usage: readUsage(json.usage) }
+      const message = json.choices?.[0]?.message ?? {}
+      if (options.onChunk && message.content) options.onChunk(message.content)
+
+      return {
+        text: message.content ?? '',
+        toolCalls: allowTools ? readToolCalls(message) : [],
+        usage: readUsage(json.usage),
+      }
     }
 
     let text = ''
     let reasoning = ''
     let usage: Usage | undefined
+    const partial: Array<{ id: string; name: string; arguments: string }> = []
+
     const reader = response.body.getReader()
     const decoder = new TextDecoder('utf-8')
     let buffer = ''
@@ -333,15 +421,25 @@ export class ProviderPool {
           const json = JSON.parse(payload)
           usage = readUsage(json.usage) ?? usage
 
-          const delta: string = json.choices?.[0]?.delta?.content ?? ''
-          const thought: string = json.choices?.[0]?.delta?.reasoning_content ?? ''
+          const delta = json.choices?.[0]?.delta ?? {}
+          const content: string = delta.content ?? ''
+          const thought: string = delta.reasoning_content ?? ''
+
           if (thought) {
             reasoning += thought
             options.onThinking?.(thought)
           }
-          if (delta) {
-            text += delta
-            options.onChunk(delta)
+          if (content) {
+            text += content
+            options.onChunk(content)
+          }
+
+          for (const call of delta.tool_calls ?? []) {
+            const index = Number(call.index ?? 0)
+            partial[index] ??= { id: '', name: '', arguments: '' }
+            if (call.id) partial[index]!.id = call.id
+            if (call.function?.name) partial[index]!.name = call.function.name
+            if (call.function?.arguments) partial[index]!.arguments += call.function.arguments
           }
         } catch {
           // Keep-alive lines and partial JSON.
@@ -349,8 +447,25 @@ export class ProviderPool {
       }
     }
 
-    return { text: text || reasoning, usage }
+    return {
+      text: text || reasoning,
+      toolCalls: allowTools ? partial.filter((call) => call.name) : [],
+      usage,
+    }
   }
+}
+
+function readToolCalls(message: any): ToolCall[] {
+  const calls = message?.tool_calls
+  if (!Array.isArray(calls)) return []
+
+  return calls
+    .filter((call: any) => call?.function?.name)
+    .map((call: any, index: number) => ({
+      id: call.id ?? `call_${index}`,
+      name: call.function.name,
+      arguments: call.function.arguments ?? '{}',
+    }))
 }
 
 export function explainError(err: any): string {

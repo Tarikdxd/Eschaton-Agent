@@ -30,54 +30,68 @@ function maskKey(key) {
 
 // src/llm/providers.ts
 var DEFAULTS = {
-  deepseek: {
-    label: "DeepSeek",
-    baseUrl: "https://api.deepseek.com/chat/completions",
-    envKey: "DEEPSEEK_API_KEY",
-    model: "deepseek-chat",
-    local: false
-  },
   openrouter: {
     label: "OpenRouter",
     baseUrl: "https://openrouter.ai/api/v1/chat/completions",
     envKey: "OPENROUTER_API_KEY",
     model: "deepseek/deepseek-chat-v3-0324:free",
     local: false,
+    free: true,
     headers: {
       "HTTP-Referer": "https://github.com/Tarikdxd/Eschaton-Code",
       "X-Title": "Eschaton Code"
     }
+  },
+  gemini: {
+    label: "Google",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    envKey: "GEMINI_API_KEY",
+    model: "gemini-2.5-flash",
+    local: false,
+    free: true
   },
   groq: {
     label: "Groq",
     baseUrl: "https://api.groq.com/openai/v1/chat/completions",
     envKey: "GROQ_API_KEY",
     model: "deepseek-r1-distill-llama-70b",
-    local: false
+    local: false,
+    free: true
+  },
+  deepseek: {
+    label: "DeepSeek",
+    baseUrl: "https://api.deepseek.com/chat/completions",
+    envKey: "DEEPSEEK_API_KEY",
+    model: "deepseek-chat",
+    local: false,
+    free: false
   },
   ollama: {
     label: "Ollama",
     baseUrl: "http://127.0.0.1:11434/v1/chat/completions",
     envKey: "OLLAMA_API_KEY",
     model: "deepseek-r1:7b",
-    local: true
+    local: true,
+    free: true
   },
   lmstudio: {
     label: "LM Studio",
     baseUrl: "http://127.0.0.1:1234/v1/chat/completions",
     envKey: "LMSTUDIO_API_KEY",
     model: "deepseek-r1-distill-qwen-7b",
-    local: true
+    local: true,
+    free: true
   },
   custom: {
     label: "Custom endpoint",
     baseUrl: "",
     envKey: "OPENAI_API_KEY",
     model: "deepseek-chat",
-    local: false
+    local: false,
+    free: false
   }
 };
-var HOSTED = ["deepseek", "openrouter", "groq", "custom"];
+var HOSTED = ["openrouter", "gemini", "groq", "deepseek", "custom"];
 var LOCAL_KINDS = ["ollama", "lmstudio"];
 function makeProvider(kind, settings, env) {
   const defaults = DEFAULTS[kind];
@@ -92,6 +106,7 @@ function makeProvider(kind, settings, env) {
       model: env.OPENAI_MODEL || settings.model || defaults.model,
       apiKey: apiKey2,
       local: false,
+      free: false,
       cooldownUntil: 0
     };
   }
@@ -106,6 +121,7 @@ function makeProvider(kind, settings, env) {
     apiKey,
     headers: defaults.headers,
     local: false,
+    free: defaults.free,
     cooldownUntil: 0
   };
 }
@@ -172,6 +188,7 @@ var ProviderPool = class {
         baseUrl: defaults.baseUrl,
         model,
         local: true,
+        free: true,
         cooldownUntil: 0
       });
     }
@@ -210,39 +227,70 @@ var ProviderPool = class {
 ${failures.map((line) => `  - ${line}`).join("\n")}`);
   }
   async call(provider, options) {
+    const body = {
+      model: provider.model,
+      messages: options.messages,
+      temperature: options.temperature ?? 0.2,
+      max_tokens: options.maxTokens ?? 4096,
+      stream: Boolean(options.onChunk),
+      ...options.onChunk ? { stream_options: { include_usage: true } } : {}
+    };
+    if (options.tools?.length) {
+      body.tools = options.tools;
+      body.tool_choice = "auto";
+    }
+    const response = await this.post(provider, body, options.signal);
+    if (response.status === 400 && options.tools?.length) {
+      const detail = await response.text().catch(() => "");
+      if (/tool|function/i.test(detail)) {
+        const retryBody = { ...body };
+        delete retryBody.tools;
+        delete retryBody.tool_choice;
+        const retry = await this.post(provider, retryBody, options.signal);
+        return this.read(retry, options, false);
+      }
+      const error = new Error(detail.slice(0, 300) || "HTTP 400");
+      error.status = 400;
+      throw error;
+    }
+    return this.read(response, options, Boolean(options.tools?.length));
+  }
+  post(provider, body, signal) {
     const headers = {
       "Content-Type": "application/json",
       ...provider.headers
     };
     if (provider.apiKey) headers.Authorization = `Bearer ${provider.apiKey}`;
-    const response = await fetch(provider.baseUrl, {
+    return fetch(provider.baseUrl, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        model: provider.model,
-        messages: options.messages,
-        temperature: options.temperature ?? 0.2,
-        max_tokens: options.maxTokens ?? 4096,
-        stream: Boolean(options.onChunk),
-        ...options.onChunk ? { stream_options: { include_usage: true } } : {}
-      }),
-      signal: linkSignals(options.signal, 18e4)
+      body: JSON.stringify(body),
+      signal: linkSignals(signal, 18e4)
     });
+  }
+  async read(response, options, allowTools) {
     if (!response.ok) {
-      const body = await response.text().catch(() => "");
-      const error = new Error(body.slice(0, 300) || `HTTP ${response.status}`);
+      const detail = await response.text().catch(() => "");
+      const error = new Error(detail.slice(0, 300) || `HTTP ${response.status}`);
       error.status = response.status;
       throw error;
     }
-    if (!options.onChunk || !response.body) {
+    const contentType = response.headers.get("content-type") ?? "";
+    const isStream = contentType.includes("event-stream");
+    if (!options.onChunk || !response.body || !isStream) {
       const json = await response.json();
-      const text2 = json.choices?.[0]?.message?.content ?? "";
-      if (options.onChunk && text2) options.onChunk(text2);
-      return { text: text2, usage: readUsage(json.usage) };
+      const message = json.choices?.[0]?.message ?? {};
+      if (options.onChunk && message.content) options.onChunk(message.content);
+      return {
+        text: message.content ?? "",
+        toolCalls: allowTools ? readToolCalls(message) : [],
+        usage: readUsage(json.usage)
+      };
     }
     let text = "";
     let reasoning = "";
     let usage;
+    const partial = [];
     const reader = response.body.getReader();
     const decoder = new TextDecoder("utf-8");
     let buffer = "";
@@ -260,23 +308,44 @@ ${failures.map((line) => `  - ${line}`).join("\n")}`);
         try {
           const json = JSON.parse(payload);
           usage = readUsage(json.usage) ?? usage;
-          const delta = json.choices?.[0]?.delta?.content ?? "";
-          const thought = json.choices?.[0]?.delta?.reasoning_content ?? "";
+          const delta = json.choices?.[0]?.delta ?? {};
+          const content = delta.content ?? "";
+          const thought = delta.reasoning_content ?? "";
           if (thought) {
             reasoning += thought;
             options.onThinking?.(thought);
           }
-          if (delta) {
-            text += delta;
-            options.onChunk(delta);
+          if (content) {
+            text += content;
+            options.onChunk(content);
+          }
+          for (const call of delta.tool_calls ?? []) {
+            const index = Number(call.index ?? 0);
+            partial[index] ??= { id: "", name: "", arguments: "" };
+            if (call.id) partial[index].id = call.id;
+            if (call.function?.name) partial[index].name = call.function.name;
+            if (call.function?.arguments) partial[index].arguments += call.function.arguments;
           }
         } catch {
         }
       }
     }
-    return { text: text || reasoning, usage };
+    return {
+      text: text || reasoning,
+      toolCalls: allowTools ? partial.filter((call) => call.name) : [],
+      usage
+    };
   }
 };
+function readToolCalls(message) {
+  const calls = message?.tool_calls;
+  if (!Array.isArray(calls)) return [];
+  return calls.filter((call) => call?.function?.name).map((call, index) => ({
+    id: call.id ?? `call_${index}`,
+    name: call.function.name,
+    arguments: call.function.arguments ?? "{}"
+  }));
+}
 function explainError(err) {
   const status = err?.status;
   if (status === 401 || status === 403) return "API key rejected";
@@ -305,6 +374,7 @@ function linkSignals(signal, timeoutMs) {
 // src/ui/tui.ts
 import readline from "node:readline";
 import process2 from "node:process";
+import { execSync } from "node:child_process";
 
 // src/agent/coding-agent.ts
 import fs2 from "node:fs";
@@ -315,11 +385,98 @@ var execAsync = promisify(exec);
 var MODES = ["Build", "Plan", "Review", "Fast"];
 var READ_ONLY_MODES = ["Plan", "Review"];
 var MODE_RULES = {
-  Build: "Implement the change: read the files you need, edit them, run the build or tests, then report what changed.",
-  Plan: "Read-only. Do not edit files and do not run commands. Inspect the code and reply with a concrete plan: files to touch, order of work, risks.",
-  Review: "Read-only. Do not edit files and do not run commands. Read the relevant code and report bugs, unsafe assumptions and missing tests, quoting paths and line numbers.",
-  Fast: "Answer directly with as few tool calls as possible. A short explanation beats a full implementation."
+  Build: "Implement the change: read files, edit them, run the project tests, then report what changed.",
+  Plan: "Read-only. Do not edit files or run commands. Reply with a concrete plan: files to touch, order of work, risks.",
+  Review: "Read-only. Do not edit files or run commands. Report bugs, unsafe assumptions and missing tests with paths and line numbers.",
+  Fast: "Answer directly with as few tool calls as possible."
 };
+var TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "read_file",
+      description: "Read a text file with line numbers.",
+      parameters: {
+        type: "object",
+        properties: {
+          filePath: { type: "string", description: "Path relative to the workspace" },
+          startLine: { type: "number", description: "First line, 1-based" },
+          endLine: { type: "number", description: "Last line, inclusive" }
+        },
+        required: ["filePath"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "write_file",
+      description: "Create a file or replace its whole content.",
+      parameters: {
+        type: "object",
+        properties: {
+          filePath: { type: "string" },
+          content: { type: "string" }
+        },
+        required: ["filePath", "content"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "edit_file",
+      description: "Replace one exact substring in a file. Read the file first and copy the text exactly.",
+      parameters: {
+        type: "object",
+        properties: {
+          filePath: { type: "string" },
+          target: { type: "string", description: "Exact text to replace, including indentation" },
+          replacement: { type: "string" }
+        },
+        required: ["filePath", "target", "replacement"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "run_command",
+      description: "Run a shell command in the workspace and return stdout and stderr.",
+      parameters: {
+        type: "object",
+        properties: { command: { type: "string" } },
+        required: ["command"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_dir",
+      description: "List a directory.",
+      parameters: {
+        type: "object",
+        properties: { dirPath: { type: "string" } }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_code",
+      description: "Find files containing a literal string.",
+      parameters: {
+        type: "object",
+        properties: {
+          pattern: { type: "string" },
+          dirPath: { type: "string" }
+        },
+        required: ["pattern"]
+      }
+    }
+  }
+];
 function systemPrompt(cwd, mode) {
   return `You are Eschaton Code, a coding agent working in the user's terminal.
 
@@ -327,32 +484,19 @@ Working directory: ${cwd}
 Platform: ${process.platform}
 Mode: ${mode}. ${MODE_RULES[mode]}
 
-Tools:
-1. read_file(filePath, startLine?, endLine?)
-2. write_file(filePath, content)
-3. edit_file(filePath, target, replacement) \u2014 replaces one exact substring
-4. run_command(command)
-5. list_dir(dirPath?)
-6. search_code(pattern, dirPath?)
-
-Reply with exactly one fenced block per tool call:
-
-\`\`\`tool:json
-{"tool": "read_file", "args": {"filePath": "src/cli.ts", "startLine": 1, "endLine": 40}}
-\`\`\`
-
 Rules:
 - Read a file before editing it. Copy the target text exactly, including indentation.
 - Paths are relative to the working directory.
-- Run the project's own test or build command when you change code, if one exists.
+- Run the project's own test or build command after changing code, if one exists.
 - Never invent file contents. If something is unknown, read it.
-- When the task is done, answer normally without a tool block.`;
+- Keep answers short. The terminal is not a document editor.`;
 }
 var CodingAgent = class {
   pool;
   history = [];
   cwd;
   mode;
+  undoStack = [];
   constructor(pool, cwd = process.cwd(), mode = "Build") {
     this.pool = pool;
     this.cwd = cwd;
@@ -381,20 +525,13 @@ var CodingAgent = class {
     this.history.push({ role: "user", content: prompt });
     const usage = { promptTokens: 0, completionTokens: 0 };
     let provider;
-    const maxSteps = options.maxSteps ?? 25;
+    const maxSteps = options.maxSteps ?? 30;
     for (let step = 1; step <= maxSteps; step++) {
       let buffered = "";
       let muted = false;
       const forward = (chunk) => {
         if (!callbacks.onToken || muted) return;
         buffered += chunk;
-        const marker = buffered.indexOf("```tool");
-        if (marker >= 0) {
-          if (marker > 0) callbacks.onToken(buffered.slice(0, marker));
-          buffered = "";
-          muted = true;
-          return;
-        }
         if (buffered.length > 8) {
           callbacks.onToken(buffered.slice(0, -8));
           buffered = buffered.slice(-8);
@@ -402,26 +539,49 @@ var CodingAgent = class {
       };
       const response = await this.pool.generate({
         messages: this.history,
+        tools: TOOLS,
         signal: options.signal,
-        onChunk: forward,
+        onChunk: callbacks.onToken ? forward : void 0,
         onThinking: callbacks.onThinking
       });
-      if (!muted && buffered) callbacks.onToken?.(buffered);
       provider = response.provider;
       accumulate(usage, response.usage);
-      this.history.push({ role: "assistant", content: response.text });
-      const call = this.parseToolCall(response.text);
-      if (!call) {
-        return { text: response.text, steps: step, usage, provider };
+      if (response.toolCalls.length) {
+        muted = true;
+        this.history.push({
+          role: "assistant",
+          content: response.text,
+          tool_calls: response.toolCalls.map((call) => ({
+            id: call.id,
+            type: "function",
+            function: { name: call.name, arguments: call.arguments }
+          }))
+        });
+        for (const call of response.toolCalls) {
+          const parsed = parseArguments(call);
+          const result = await this.execute(call.name, parsed, callbacks, options);
+          callbacks.onToolEnd?.(result);
+          this.history.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: truncate(result.output, 3e4)
+          });
+        }
+        this.compactHistory();
+        continue;
       }
-      const result = await this.execute(call, callbacks, options);
-      callbacks.onToolEnd?.(result);
-      this.history.push({
-        role: "user",
-        content: `Result of ${call.tool}:
-${result.output}`
-      });
-      this.compactHistory();
+      if (!muted && buffered) callbacks.onToken?.(buffered);
+      this.history.push({ role: "assistant", content: response.text });
+      const legacy = parseLegacyToolCall(response.text);
+      if (legacy) {
+        const result = await this.execute(legacy.name, legacy.args, callbacks, options);
+        callbacks.onToolEnd?.(result);
+        this.history.push({ role: "user", content: `Result of ${legacy.name}:
+${truncate(result.output, 3e4)}` });
+        this.compactHistory();
+        continue;
+      }
+      return { text: response.text, steps: step, usage, provider };
     }
     return {
       text: `Stopped after ${maxSteps} steps. Ask again to continue from here.`,
@@ -430,8 +590,40 @@ ${result.output}`
       provider
     };
   }
-  async execute(call, callbacks, options) {
-    const { tool, args } = call;
+  undoLast() {
+    const entry = this.undoStack.pop();
+    if (!entry) return void 0;
+    const file = path2.resolve(this.cwd, entry.path);
+    if (entry.before === void 0) {
+      fs2.rmSync(file, { force: true });
+    } else {
+      fs2.mkdirSync(path2.dirname(file), { recursive: true });
+      fs2.writeFileSync(file, entry.before, "utf-8");
+    }
+    return entry;
+  }
+  async compact() {
+    if (this.history.length <= 2) return "Nothing to compact.";
+    const transcript = this.history.filter((message) => message.role !== "system").map((message) => `${message.role}: ${message.content}`).join("\n\n").slice(-6e4);
+    const response = await this.pool.generate({
+      messages: [
+        {
+          role: "system",
+          content: "Summarize this coding session for a fresh context window. Keep: the goal, decisions, files changed, commands that matter, and open questions. Drop small talk. Write compact prose, max 400 words."
+        },
+        { role: "user", content: transcript }
+      ]
+    });
+    const summary = response.text.trim();
+    this.history = [
+      { role: "system", content: systemPrompt(this.cwd, this.mode) },
+      { role: "user", content: `Session so far (summary):
+${summary}` },
+      { role: "assistant", content: "Understood. Ready to continue." }
+    ];
+    return summary;
+  }
+  async execute(tool, args, callbacks, options) {
     if (READ_ONLY_MODES.includes(this.mode) && ["write_file", "edit_file", "run_command"].includes(tool)) {
       return {
         tool,
@@ -440,12 +632,15 @@ ${result.output}`
       };
     }
     const preview = this.describe(tool, args);
-    callbacks.onToolStart?.(call, preview);
+    callbacks.onToolStart?.({ id: "", name: tool, arguments: JSON.stringify(args) }, preview);
     if (preview.needsApproval && options.approve) {
-      const allowed = await options.approve(call, preview);
+      const allowed = await options.approve({ id: "", name: tool, arguments: JSON.stringify(args) }, preview);
       if (!allowed) {
-        return { tool, isError: true, output: "Denied by the user. Do not retry this call; ask what to do instead.", preview };
+        return { tool, isError: true, output: "Denied by the user. Do not retry; ask what to do instead.", preview };
       }
+    }
+    if (tool === "write_file" || tool === "edit_file") {
+      this.remember(args.filePath);
     }
     try {
       const output = await this.runTool(tool, args);
@@ -454,22 +649,26 @@ ${result.output}`
       return { tool, isError: true, output: `${tool} failed: ${err.message}`, preview };
     }
   }
+  remember(filePath) {
+    const file = path2.resolve(this.cwd, filePath);
+    const before = fs2.existsSync(file) ? fs2.readFileSync(file, "utf-8") : void 0;
+    this.undoStack.push({ path: filePath, before });
+    if (this.undoStack.length > 50) this.undoStack.shift();
+  }
   describe(tool, args) {
     if (tool === "write_file") {
       const target = path2.resolve(this.cwd, args.filePath ?? "");
-      const before = fs2.existsSync(target) ? readText(target) : void 0;
+      const before = fs2.existsSync(target) ? fs2.readFileSync(target, "utf-8") : void 0;
       return { kind: "write", path: args.filePath, before, after: String(args.content ?? ""), needsApproval: true };
     }
     if (tool === "edit_file") {
       const target = path2.resolve(this.cwd, args.filePath ?? "");
-      const before = fs2.existsSync(target) ? readText(target) : void 0;
-      const target_ = String(args.target ?? "");
-      const after = before?.includes(target_) ? before.replace(target_, String(args.replacement ?? "")) : void 0;
+      const before = fs2.existsSync(target) ? fs2.readFileSync(target, "utf-8") : void 0;
+      const needle = String(args.target ?? "");
+      const after = before?.includes(needle) ? before.replace(needle, String(args.replacement ?? "")) : void 0;
       return { kind: "edit", path: args.filePath, before, after, needsApproval: true };
     }
-    if (tool === "run_command") {
-      return { kind: "command", command: String(args.command ?? ""), needsApproval: true };
-    }
+    if (tool === "run_command") return { kind: "command", command: String(args.command ?? ""), needsApproval: true };
     if (tool === "read_file") return { kind: "read", path: args.filePath, needsApproval: false };
     if (tool === "list_dir") return { kind: "list", path: args.dirPath ?? ".", needsApproval: false };
     return { kind: "search", detail: String(args.pattern ?? ""), needsApproval: false };
@@ -479,7 +678,7 @@ ${result.output}`
       case "read_file": {
         const file = path2.resolve(this.cwd, args.filePath);
         if (!fs2.existsSync(file)) return `File not found: ${args.filePath}`;
-        const lines = readText(file).split("\n");
+        const lines = fs2.readFileSync(file, "utf-8").split("\n");
         const start = Math.max(1, Number(args.startLine) || 1);
         const end = Math.min(lines.length, Number(args.endLine) || lines.length);
         return lines.slice(start - 1, end).map((line, i) => `${start + i}: ${line}`).join("\n");
@@ -493,7 +692,7 @@ ${result.output}`
       case "edit_file": {
         const file = path2.resolve(this.cwd, args.filePath);
         if (!fs2.existsSync(file)) return `File not found: ${args.filePath}`;
-        const content = readText(file);
+        const content = fs2.readFileSync(file, "utf-8");
         const target = args.target ?? "";
         if (!target) return "target is empty";
         if (!content.includes(target)) {
@@ -542,7 +741,7 @@ ${err.stderr ?? ""}`.trim();
             }
             try {
               if (fs2.statSync(full).size > 512 * 1024) continue;
-              if (readText(full).includes(pattern)) hits.push(path2.relative(root, full));
+              if (fs2.readFileSync(full, "utf-8").includes(pattern)) hits.push(path2.relative(root, full));
             } catch {
             }
           }
@@ -554,45 +753,44 @@ ${err.stderr ?? ""}`.trim();
         return `Unknown tool: ${tool}`;
     }
   }
-  parseToolCall(content) {
-    const block = content.match(/```(?:tool:json|tool|json)\s*([\s\S]*?)```/);
-    const candidates = block?.[1] ? [block[1]] : [];
-    candidates.push(content);
-    for (const candidate of candidates) {
-      try {
-        const parsed = JSON.parse(candidate.trim());
-        if (parsed?.tool && parsed?.args) return parsed;
-      } catch {
-      }
-    }
-    const inline = content.match(/\{"tool"\s*:\s*"[^"]+"[\s\S]*?"args"\s*:\s*\{[\s\S]*?\}\s*\}/);
-    if (inline) {
-      try {
-        const parsed = JSON.parse(inline[0]);
-        if (parsed?.tool && parsed?.args) return parsed;
-      } catch {
-      }
-    }
-    return null;
-  }
-  /** Keeps the system prompt and the most recent turns when the history grows. */
   compactHistory(maxChars = 12e4) {
-    const size = () => this.history.reduce((total2, message) => total2 + message.content.length, 0);
+    const size = () => this.history.reduce((total2, message) => total2 + (message.content?.length ?? 0), 0);
     if (size() <= maxChars) return;
     const [system, ...rest] = this.history;
     const kept = [];
     let total = system?.content.length ?? 0;
     for (let i = rest.length - 1; i >= 0; i--) {
       const message = rest[i];
-      if (total + message.content.length > maxChars && kept.length >= 4) break;
+      if (total + (message.content?.length ?? 0) > maxChars && kept.length >= 4) break;
       kept.unshift(message);
-      total += message.content.length;
+      total += message.content?.length ?? 0;
     }
     this.history = system ? [system, ...kept] : kept;
   }
 };
-function readText(file) {
-  return fs2.readFileSync(file, "utf-8");
+function parseArguments(call) {
+  try {
+    const parsed = JSON.parse(call.arguments || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+function parseLegacyToolCall(content) {
+  const block = content.match(/```(?:tool:json|tool|json)\s*([\s\S]*?)```/);
+  const candidates = block?.[1] ? [block[1]] : [];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate.trim());
+      if (parsed?.tool && parsed?.args) return { name: parsed.tool, args: parsed.args };
+    } catch {
+    }
+  }
+  return null;
+}
+function truncate(text, max) {
+  return text.length > max ? `${text.slice(0, max)}
+\u2026 truncated` : text;
 }
 function accumulate(target, next) {
   if (!next) return;
@@ -762,6 +960,8 @@ var TerminalUI = class {
   lastSigint = 0;
   sessionId;
   resumedCount = 0;
+  totalUsage = { promptTokens: 0, completionTokens: 0 };
+  turns = 0;
   constructor(pool, options) {
     this.pool = pool;
     this.options = options;
@@ -877,6 +1077,9 @@ var TerminalUI = class {
       );
       this.stopSpinner();
       if (this.streamed) process2.stdout.write("\n");
+      this.turns++;
+      this.totalUsage.promptTokens = (this.totalUsage.promptTokens ?? 0) + (result.usage.promptTokens ?? 0);
+      this.totalUsage.completionTokens = (this.totalUsage.completionTokens ?? 0) + (result.usage.completionTokens ?? 0);
       const tokens = formatTokens(result.usage.promptTokens, result.usage.completionTokens);
       const parts = [
         formatDuration(Date.now() - started),
@@ -909,7 +1112,7 @@ var TerminalUI = class {
       this.streamed = false;
     }
     process2.stdout.write(`
-  ${toolLine(call.tool, detailOf(preview))}
+  ${toolLine(call.name, detailOf(preview))}
 `);
     if (preview.needsApproval) {
       process2.stdout.write(`${previewHeader(preview)}
@@ -963,23 +1166,15 @@ var TerminalUI = class {
     }
     return answer === "" || answer === "y" || answer === "yes";
   }
-  /** Asks a question while the main interface is paused. */
+  /**
+   * Asks on the existing interface. The run loop is busy while this happens, so
+   * the reply is not mistaken for a new prompt.
+   */
   ask(question) {
-    const main2 = this.rl;
-    main2?.pause();
+    const rl = this.rl;
+    if (!rl) return Promise.resolve("");
     return new Promise((resolve) => {
-      const rl = readline.createInterface({ input: process2.stdin, output: process2.stdout, terminal: true });
-      let settled = false;
-      const finish = (answer) => {
-        if (settled) return;
-        settled = true;
-        rl.close();
-        main2?.resume();
-        main2?.prompt();
-        resolve(answer);
-      };
-      rl.on("SIGINT", () => finish("n"));
-      rl.question(question, (answer) => finish(answer.trim()));
+      rl.question(question, (answer) => resolve(answer.trim()));
     });
   }
   async runCommand(input) {
@@ -1010,9 +1205,112 @@ var TerminalUI = class {
       case "session":
         process2.stdout.write(c.dim(`  session ${this.sessionId}`) + "\n");
         return;
+      case "undo":
+        this.undo();
+        return;
+      case "diff":
+        this.showDiff();
+        return;
+      case "cost":
+        this.showCost();
+        return;
+      case "sessions":
+        this.showSessions();
+        return;
+      case "resume":
+        this.resume(argument);
+        return;
+      case "compact":
+        await this.compact();
+        return;
+      case "init":
+        await this.runTask(
+          "Create an AGENTS.md in the project root describing how to build, test and navigate this repository. Read the README, package.json or equivalent first. Keep it under 60 lines."
+        );
+        return;
       default:
         process2.stdout.write(c.dim(`  unknown command /${command}, try /help`) + "\n");
     }
+  }
+  undo() {
+    const entry = this.agent.undoLast();
+    if (!entry) {
+      process2.stdout.write(c.dim("  nothing to undo") + "\n");
+      return;
+    }
+    process2.stdout.write(`  ${c.green(sym.ok)} restored ${c.bold(entry.path)}
+`);
+  }
+  showDiff() {
+    try {
+      const stat = execSync("git diff --stat", { cwd: this.options.cwd, encoding: "utf-8" });
+      const diff = execSync("git diff", { cwd: this.options.cwd, encoding: "utf-8", maxBuffer: 4 * 1024 * 1024 });
+      if (!stat.trim()) {
+        process2.stdout.write(c.dim("  working tree is clean") + "\n");
+        return;
+      }
+      process2.stdout.write("\n" + c.dim(stat.trimEnd()) + "\n\n");
+      for (const line of diff.split("\n").slice(0, 200)) {
+        const painted = line.startsWith("+") ? c.green(line) : line.startsWith("-") ? c.red(line) : line.startsWith("@@") ? c.cyan(line) : c.dim(line);
+        process2.stdout.write(`  ${painted}
+`);
+      }
+      process2.stdout.write("\n");
+    } catch {
+      process2.stdout.write(c.dim("  not a git repository") + "\n");
+    }
+  }
+  showCost() {
+    const prompt = this.totalUsage.promptTokens ?? 0;
+    const completion = this.totalUsage.completionTokens ?? 0;
+    process2.stdout.write(
+      c.dim(`  ${this.turns} turn${this.turns === 1 ? "" : "s"} ${sym.dot} ${prompt} in ${sym.dot} ${completion} out`) + "\n"
+    );
+  }
+  showSessions() {
+    const sessions = listSessions().filter((session) => session.cwd === this.options.cwd).slice(0, 10);
+    if (!sessions.length) {
+      process2.stdout.write(c.dim("  no sessions for this directory") + "\n");
+      return;
+    }
+    process2.stdout.write("\n");
+    sessions.forEach((session, index) => {
+      const messages = session.messages.filter((message) => message.role === "user").length;
+      const current = session.id === this.sessionId ? c.cyan("*") : " ";
+      process2.stdout.write(
+        `  ${current} ${index + 1}. ${new Date(session.createdAt).toLocaleString()} ${c.dim(`${messages} messages ${sym.dot} ${session.mode}`)}
+`
+      );
+    });
+    process2.stdout.write("\n" + c.dim("  /resume <number> to load one") + "\n");
+  }
+  resume(argument) {
+    const sessions = listSessions().filter((session2) => session2.cwd === this.options.cwd);
+    const index = Number(argument) - 1;
+    const session = sessions[index];
+    if (!session) {
+      process2.stdout.write(c.dim("  usage: /resume <number from /sessions>") + "\n");
+      return;
+    }
+    this.sessionId = session.id;
+    this.agent.setMode(session.mode ?? "Build");
+    this.agent.setHistory(session.messages);
+    this.setPrompt();
+    process2.stdout.write(`  ${c.green(sym.ok)} resumed ${new Date(session.createdAt).toLocaleString()}
+`);
+  }
+  async compact() {
+    this.startSpinner();
+    try {
+      const summary = await this.agent.compact();
+      this.stopSpinner();
+      process2.stdout.write(c.dim(`  compacted to ${summary.length} characters`) + "\n");
+    } catch (err) {
+      this.stopSpinner();
+      process2.stdout.write(`  ${c.red("error")} ${err?.message ?? err}
+`);
+    }
+    this.persist();
   }
   setMode(argument) {
     const wanted = argument.toLowerCase();
@@ -1067,7 +1365,13 @@ var TerminalUI = class {
       ["/mode [name]", "build, plan, review, fast (cycles when empty)"],
       ["/model [name]", "show or set the model for the active provider"],
       ["/providers [n]", "list providers, or switch to number n"],
-      ["/session", "show the current session id"],
+      ["/init", "write an AGENTS.md for this project"],
+      ["/diff", "show the working tree diff"],
+      ["/undo", "revert the last file the agent changed"],
+      ["/compact", "summarize the conversation to free context"],
+      ["/cost", "tokens used in this session"],
+      ["/sessions", "list saved sessions for this directory"],
+      ["/resume <n>", "load a saved session"],
       ["/clear", "forget the conversation"],
       ["/exit", "leave"]
     ];
@@ -1135,7 +1439,7 @@ function firstLine(text) {
 import http from "node:http";
 import fs4 from "node:fs";
 import path4 from "node:path";
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", ".next", ".cache", "coverage"]);
 var MAX_FILE_BYTES = 2 * 1024 * 1024;
@@ -1164,6 +1468,19 @@ async function startIde(options) {
       else res.end();
     });
   });
+  function runGit(args) {
+    return new Promise((resolve) => {
+      execFile(
+        "git",
+        args,
+        { cwd: root, maxBuffer: 8 * 1024 * 1024, windowsHide: true },
+        (error, stdout, stderr) => {
+          const code = error ? typeof error.code === "number" ? error.code : 1 : 0;
+          resolve({ code, out: String(stdout ?? ""), err: String(stderr ?? "") });
+        }
+      );
+    });
+  }
   async function handle(req, res) {
     const url2 = new URL(req.url ?? "/", "http://127.0.0.1");
     const route = url2.pathname;
@@ -1221,6 +1538,105 @@ async function startIde(options) {
       fs4.mkdirSync(path4.dirname(target), { recursive: true });
       fs4.writeFileSync(target, body.content ?? "", "utf-8");
       return sendJson(res, 200, { ok: true });
+    }
+    if (route === "/api/file" && req.method === "POST") {
+      const body = await readJson(req);
+      const target = safePath(root, body.path);
+      if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
+      if (fs4.existsSync(target)) return sendJson(res, 409, { error: "already exists" });
+      if (body.dir) {
+        fs4.mkdirSync(target, { recursive: true });
+      } else {
+        fs4.mkdirSync(path4.dirname(target), { recursive: true });
+        fs4.writeFileSync(target, "", "utf-8");
+      }
+      return sendJson(res, 200, { ok: true });
+    }
+    if (route === "/api/file" && req.method === "DELETE") {
+      const target = safePath(root, url2.searchParams.get("path") ?? "");
+      if (!target || target === root) return sendJson(res, 400, { error: "path outside the workspace" });
+      if (!fs4.existsSync(target)) return sendJson(res, 404, { error: "not found" });
+      fs4.rmSync(target, { recursive: true, force: true });
+      return sendJson(res, 200, { ok: true });
+    }
+    if (route === "/api/rename" && req.method === "POST") {
+      const body = await readJson(req);
+      const from = safePath(root, body.from);
+      const to = safePath(root, body.to);
+      if (!from || !to) return sendJson(res, 400, { error: "path outside the workspace" });
+      if (!fs4.existsSync(from)) return sendJson(res, 404, { error: "not found" });
+      if (fs4.existsSync(to)) return sendJson(res, 409, { error: "target already exists" });
+      fs4.mkdirSync(path4.dirname(to), { recursive: true });
+      fs4.renameSync(from, to);
+      return sendJson(res, 200, { ok: true });
+    }
+    if (route === "/api/search") {
+      const query = (url2.searchParams.get("q") ?? "").trim();
+      if (!query) return sendJson(res, 200, { results: [] });
+      const results = [];
+      const files = [];
+      walk(root, files);
+      for (const relative of files) {
+        if (results.length >= 200) break;
+        const file = path4.join(root, relative);
+        try {
+          if (fs4.statSync(file).size > 512 * 1024) continue;
+          const content = fs4.readFileSync(file, "utf-8");
+          if (content.includes("\0")) continue;
+          content.split("\n").forEach((text, index) => {
+            if (results.length < 200 && text.toLowerCase().includes(query.toLowerCase())) {
+              results.push({ path: relative, line: index + 1, text: text.trim().slice(0, 200) });
+            }
+          });
+        } catch {
+        }
+      }
+      return sendJson(res, 200, { results });
+    }
+    if (route === "/api/git/status") {
+      const { code, out } = await runGit(["status", "--porcelain=v1", "-b"]);
+      if (code !== 0) return sendJson(res, 200, { isRepo: false });
+      const lines = out.split("\n").filter(Boolean);
+      const header = lines.shift() ?? "";
+      const branch = header.replace(/^##\s*/, "").split("...")[0]?.split(" ")[0] ?? "HEAD";
+      const ahead = Number(header.match(/ahead (\d+)/)?.[1] ?? 0);
+      const behind = Number(header.match(/behind (\d+)/)?.[1] ?? 0);
+      const files = lines.map((line) => {
+        const index = line[0] ?? " ";
+        const work = line[1] ?? " ";
+        const file = line.slice(3).trim();
+        const status = index !== " " && index !== "?" ? index : work;
+        return { path: file, status, staged: index !== " " && index !== "?" };
+      });
+      return sendJson(res, 200, { isRepo: true, branch, ahead, behind, files });
+    }
+    if (route === "/api/git/diff") {
+      const file = url2.searchParams.get("path") ?? "";
+      const staged = url2.searchParams.get("staged") === "1";
+      const args = staged ? ["diff", "--cached", "--", file] : ["diff", "--", file];
+      const { out } = await runGit(args);
+      return sendJson(res, 200, { diff: out });
+    }
+    if (route === "/api/git/stage" && req.method === "POST") {
+      const body = await readJson(req);
+      const args = body.staged ? ["add", "--", body.path] : ["restore", "--staged", "--", body.path];
+      const { code, err } = await runGit(args);
+      return sendJson(res, code === 0 ? 200 : 500, { ok: code === 0, error: err });
+    }
+    if (route === "/api/git/commit" && req.method === "POST") {
+      const body = await readJson(req);
+      if (!body.message?.trim()) return sendJson(res, 400, { error: "empty message" });
+      const { code, out, err } = await runGit(["commit", "-m", body.message]);
+      return sendJson(res, code === 0 ? 200 : 500, { ok: code === 0, output: out + err });
+    }
+    if (route === "/api/git/branches") {
+      const { out } = await runGit(["branch", "--format=%(refname:short)"]);
+      return sendJson(res, 200, { branches: out.split("\n").filter(Boolean) });
+    }
+    if (route === "/api/git/sync" && req.method === "POST") {
+      const pull = await runGit(["pull", "--rebase", "--autostash"]);
+      const push = await runGit(["push"]);
+      return sendJson(res, 200, { output: [pull.out, pull.err, push.out, push.err].filter(Boolean).join("\n") });
     }
     if (route === "/api/model" && req.method === "POST") {
       const body = await readJson(req);
@@ -1290,7 +1706,7 @@ async function startIde(options) {
         body.message,
         {
           onToken: (text) => emit(res, { type: "token", text }),
-          onToolStart: (call, preview) => emit(res, { type: "tool", name: call.tool, preview: publicPreview(preview) }),
+          onToolStart: (call, preview) => emit(res, { type: "tool", name: call.name, preview: publicPreview(preview) }),
           onToolEnd: (toolResult) => emit(res, {
             type: "tool_end",
             name: toolResult.tool,
@@ -1300,7 +1716,7 @@ async function startIde(options) {
         },
         {
           signal: controller.signal,
-          approve: (call, preview) => askApproval(res, approvals, call.tool, publicPreview(preview))
+          approve: body.autoApprove ? void 0 : (call, preview) => askApproval(res, approvals, call.name, publicPreview(preview))
         }
       );
       saveSession({
@@ -1443,7 +1859,7 @@ function openBrowser(url) {
 }
 
 // src/cli.ts
-var VERSION = "3.0.0";
+var VERSION = "3.1.0";
 var DEFAULT_PORT = 4123;
 function setupText() {
   return `
@@ -1473,9 +1889,9 @@ function printHelp() {
 Usage: eschaton [command] [options]
 
 Commands:
-  (none)                    open the IDE in your browser
-  ide [--port 4123]         open the IDE
-  chat                      use the terminal interface instead
+  (none)                    start the terminal agent in this directory
+  ide [--port 4123]         open the browser IDE instead
+  chat                      start the terminal agent (same as no command)
   doctor                    show detected models and settings
   setup                     show how to connect a model
   login <provider> <key>    save a key: deepseek, openrouter, groq, custom
@@ -1623,7 +2039,10 @@ async function main() {
     process3.stdout.write(setupText());
     return 0;
   }
-  return runIde(command === "ide" ? argv.slice(1) : argv);
+  if (command === "ide" || argv.includes("--ide")) {
+    return runIde(command === "ide" ? argv.slice(1) : argv);
+  }
+  return runChat(argv);
 }
 main().then((code) => {
   if (code !== 0) process3.exitCode = code;
