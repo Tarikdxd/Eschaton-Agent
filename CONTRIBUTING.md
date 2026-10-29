@@ -25,7 +25,10 @@ bun run build
 - `src/ide/web/` is the browser UI, written in TypeScript against Monaco and xterm. `app.ts` is
   bundled with esbuild, Monaco is copied from `node_modules` at build time.
 - `src/llm/providers.ts` builds the provider list, discovers local servers and streams responses.
-- `src/agent/coding-agent.ts` holds the system prompt, the ReAct loop and the tools.
+- `src/agent/coding-agent.ts` holds the system prompt, the ReAct loop, tool dispatch,
+  permissions, hooks and the subagent.
+- `src/permissions.ts`, `src/hooks.ts`, `src/mcp.ts` and `src/todos.ts` are the policy and
+  extension points.
 - `src/session.ts` stores conversations under `~/.eschaton/sessions`.
 
 ## Conventions

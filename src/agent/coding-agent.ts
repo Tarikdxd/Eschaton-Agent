@@ -17,6 +17,9 @@ import {
   type Usage,
 } from '../llm/providers.js'
 import { memoryBlock } from '../memory.js'
+import { decide, type Policy } from '../permissions.js'
+import { runHook, type Hooks } from '../hooks.js'
+import { formatTodo, normalizeTodos, TODO_TOOL, type Todo } from '../todos.js'
 
 const execAsync = promisify(exec)
 
@@ -25,7 +28,7 @@ export type Mode = 'Build' | 'Plan' | 'Review' | 'Fast'
 export const MODES: Mode[] = ['Build', 'Plan', 'Review', 'Fast']
 
 export interface ToolPreview {
-  kind: 'read' | 'write' | 'edit' | 'command' | 'list' | 'search'
+  kind: 'read' | 'write' | 'edit' | 'command' | 'list' | 'search' | 'tool'
   path?: string
   command?: string
   before?: string
@@ -59,6 +62,31 @@ export interface RunResult {
   steps: number
   usage: Usage
   provider?: string
+}
+
+export interface AgentOptions {
+  policy?: Policy
+  hooks?: Hooks
+  extraTools?: ToolSpec[]
+  extraHandlers?: Record<string, (args: Record<string, any>) => Promise<string>>
+  onTodos?: (todos: Todo[]) => void
+}
+
+const TASK_TOOL: ToolSpec = {
+  type: 'function',
+  function: {
+    name: 'task',
+    description:
+      'Run a focused read-only subagent with its own context and return its findings. Use it to explore a large area or check several files without filling this conversation.',
+    parameters: {
+      type: 'object',
+      properties: {
+        description: { type: 'string', description: 'Short label, shown to the user' },
+        prompt: { type: 'string', description: 'What the subagent should find out' },
+      },
+      required: ['description', 'prompt'],
+    },
+  },
 }
 
 const READ_ONLY_MODES: Mode[] = ['Plan', 'Review']
@@ -170,6 +198,8 @@ Rules:
 - Paths are relative to the working directory.
 - Run the project's own test or build command after changing code, if one exists.
 - Never invent file contents. If something is unknown, read it.
+- For multi-step work, call todo_write first and update it as you go.
+- Call task to hand a focused read-only investigation to a subagent.
 - Keep answers short. The terminal is not a document editor.${memoryBlock(cwd)}`
 }
 
@@ -184,12 +214,31 @@ export class CodingAgent {
   private cwd: string
   private mode: Mode
   private undoStack: UndoEntry[] = []
+  private options: AgentOptions
+  private tools: ToolSpec[]
+  private handlers: Record<string, (args: Record<string, any>) => Promise<string>>
+  private todos: Todo[] = []
 
-  constructor(pool: ProviderPool, cwd: string = process.cwd(), mode: Mode = 'Build') {
+  constructor(pool: ProviderPool, cwd: string = process.cwd(), mode: Mode = 'Build', options: AgentOptions = {}) {
     this.pool = pool
     this.cwd = cwd
     this.mode = mode
+    this.options = options
+    this.tools = [...TOOLS, TODO_TOOL, TASK_TOOL, ...(options.extraTools ?? [])]
+    this.handlers = {
+      ...(options.extraHandlers ?? {}),
+      todo_write: async (args) => {
+        this.todos = normalizeTodos(args.todos)
+        this.options.onTodos?.(this.todos)
+        return this.todos.length ? this.todos.map(formatTodo).join('\n') : 'Task list cleared.'
+      },
+      task: async (args) => this.runSubagent(String(args.prompt ?? ''), String(args.description ?? 'subagent')),
+    }
     this.resetHistory()
+  }
+
+  public getTodos(): Todo[] {
+    return this.todos
   }
 
   public getMode(): Mode {
@@ -236,7 +285,7 @@ export class CodingAgent {
 
       const response = await this.pool.generate({
         messages: this.history,
-        tools: TOOLS,
+        tools: this.tools,
         signal: options.signal,
         onChunk: callbacks.onToken ? forward : undefined,
         onThinking: callbacks.onThinking,
@@ -355,13 +404,36 @@ export class CodingAgent {
       }
     }
 
+    const decision = this.options.policy ? decide(this.options.policy, tool, args) : 'ask'
     const preview = this.describe(tool, args)
     callbacks.onToolStart?.({ id: '', name: tool, arguments: JSON.stringify(args) }, preview)
 
-    if (preview.needsApproval && options.approve) {
+    if (decision === 'deny') {
+      return { tool, isError: true, output: `Blocked by a permission rule for ${tool}.`, preview }
+    }
+
+    if (preview.needsApproval && decision === 'ask' && options.approve) {
       const allowed = await options.approve({ id: '', name: tool, arguments: JSON.stringify(args) }, preview)
       if (!allowed) {
         return { tool, isError: true, output: 'Denied by the user. Do not retry; ask what to do instead.', preview }
+      }
+    }
+
+    const env = {
+      ESCHATON_TOOL: tool,
+      ESCHATON_TOOL_ARGS: JSON.stringify(args).slice(0, 4000),
+      ESCHATON_CWD: this.cwd,
+    }
+
+    if (this.options.hooks?.preTool) {
+      const hook = await runHook(this.options.hooks.preTool, this.cwd, env)
+      if (!hook.ok) {
+        return {
+          tool,
+          isError: true,
+          output: `Blocked by the preTool hook:\n${hook.output || 'non-zero exit'}`,
+          preview,
+        }
       }
     }
 
@@ -370,11 +442,34 @@ export class CodingAgent {
     }
 
     try {
-      const output = await this.runTool(tool, args)
+      let output = await this.runTool(tool, args)
+
+      if (this.options.hooks?.postTool) {
+        const hook = await runHook(this.options.hooks.postTool, this.cwd, env)
+        if (!hook.ok) output += `\n\npostTool hook failed:\n${hook.output}`
+      }
+
       return { tool, isError: false, output, preview }
     } catch (err: any) {
       return { tool, isError: true, output: `${tool} failed: ${err.message}`, preview }
     }
+  }
+
+  private async runSubagent(prompt: string, description: string): Promise<string> {
+    if (!prompt.trim()) return 'task prompt is empty'
+
+    const subagent = new CodingAgent(this.pool, this.cwd, 'Plan', {
+      extraTools: this.options.extraTools,
+      extraHandlers: this.options.extraHandlers,
+    })
+
+    const result = await subagent.run(
+      `Investigate and report. Do not change files.\n\n${prompt}`,
+      {},
+      { maxSteps: 12 },
+    )
+
+    return `Subagent "${description}" finished:\n${truncate(result.text, 8000)}`
   }
 
   private remember(filePath: string): void {
@@ -402,7 +497,10 @@ export class CodingAgent {
     if (tool === 'run_command') return { kind: 'command', command: String(args.command ?? ''), needsApproval: true }
     if (tool === 'read_file') return { kind: 'read', path: args.filePath, needsApproval: false }
     if (tool === 'list_dir') return { kind: 'list', path: args.dirPath ?? '.', needsApproval: false }
-    return { kind: 'search', detail: String(args.pattern ?? ''), needsApproval: false }
+    if (tool === 'search_code') return { kind: 'search', detail: String(args.pattern ?? ''), needsApproval: false }
+    if (tool === 'todo_write' || tool === 'task') return { kind: 'tool', detail: tool, needsApproval: false }
+
+    return { kind: 'tool', detail: tool, needsApproval: true }
   }
 
   private async runTool(tool: string, args: Record<string, any>): Promise<string> {
@@ -501,8 +599,11 @@ export class CodingAgent {
         return hits.join('\n') || 'No matches.'
       }
 
-      default:
+      default: {
+        const handler = this.handlers[tool]
+        if (handler) return handler(args)
         return `Unknown tool: ${tool}`
+      }
     }
   }
 

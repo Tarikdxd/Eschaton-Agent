@@ -59,6 +59,7 @@ export function formatTokens(prompt?: number, completion?: number): string {
 
 export function previewHeader(preview: ToolPreview): string {
   if (preview.kind === 'command') return c.gray(`$ ${preview.command}`)
+  if (preview.kind === 'tool') return c.gray(`tool ${preview.detail}`)
   if (preview.kind === 'read') return c.gray(`read ${preview.path}`)
   if (preview.kind === 'list') return c.gray(`list ${preview.path}`)
   if (preview.kind === 'search') return c.gray(`search "${preview.detail}"`)

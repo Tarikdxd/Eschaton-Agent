@@ -1,6 +1,6 @@
 {
   "name": "eschaton-code",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "description": "Terminal coding agent with native tool calling, sessions and a free-tier model router",
   "type": "module",
   "bin": {

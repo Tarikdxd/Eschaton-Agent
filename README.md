@@ -82,6 +82,59 @@ eschaton -p "why does the build fail" --yes
   Without `--yes` the agent is limited to read-only tools, so it cannot edit files or run
   commands unattended.
 
+### MCP servers
+
+`~/.eschaton/mcp.json` or `.eschaton/mcp.json` connects Model Context Protocol servers. Their
+tools show up in the agent as `mcp__<server>__<tool>`.
+
+```json
+{
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  }
+}
+```
+
+Startup prints `mcp  filesystem (12)` when a server connected.
+
+### Permission rules
+
+`~/.eschaton/permissions.json` and `.eschaton/permissions.json` decide what runs without asking.
+
+```json
+{
+  "allow": ["run_command:npm test*", "write_file:docs/*"],
+  "deny": ["run_command:rm -rf*"]
+}
+```
+
+`deny` wins over `allow`, and anything unmatched asks. Answering `a` at a prompt saves a narrow
+rule for that command or folder, so the next run does not ask again. `/permissions` shows the
+active rules.
+
+### Hooks
+
+`.eschaton/hooks.json` runs a command around every tool call. A non-zero exit from `preTool`
+blocks the tool and the output is handed back to the model.
+
+```json
+{
+  "preTool": "node scripts/check-tool.js",
+  "postTool": "npm run lint --silent"
+}
+```
+
+The hook receives `ESCHATON_TOOL`, `ESCHATON_TOOL_ARGS` and `ESCHATON_CWD` in its environment.
+
+### Task list and subagents
+
+For multi-step work the agent keeps a task list with `todo_write`; it is printed as a checklist
+and `/todos` shows the current one. The `task` tool runs a read-only subagent with its own
+context and returns a summary, so exploring ten files does not fill the main conversation.
+
 ## How it works
 
 - **Native tool calling.** The agent sends `read_file`, `write_file`, `edit_file`, `run_command`,

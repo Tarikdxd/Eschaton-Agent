@@ -6,10 +6,13 @@ import { execSync } from 'node:child_process'
 import {
   CodingAgent,
   MODES,
+  type AgentOptions,
   type Mode,
   type ToolPreview,
   type ToolResult,
 } from '../agent/coding-agent.js'
+import { addRule, loadPolicy, suggestRule } from '../permissions.js'
+import type { Todo } from '../todos.js'
 import { ProviderPool, type ToolCall, type Usage } from '../llm/providers.js'
 import { latestSession, listSessions, loadSession, saveSession } from '../session.js'
 import { expandCommand, loadCommands } from '../commands.js'
@@ -33,6 +36,7 @@ export interface TerminalOptions {
   mode?: Mode
   sessionId?: string
   resume?: boolean
+  agentOptions?: AgentOptions
 }
 
 export class TerminalUI {
@@ -57,7 +61,10 @@ export class TerminalUI {
   constructor(pool: ProviderPool, options: TerminalOptions) {
     this.pool = pool
     this.options = options
-    this.agent = new CodingAgent(pool, options.cwd, options.mode ?? 'Build')
+    this.agent = new CodingAgent(pool, options.cwd, options.mode ?? 'Build', {
+      ...options.agentOptions,
+      onTodos: (todos) => this.renderTodos(todos),
+    })
     this.sessionId = options.sessionId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
     if (options.resume) {
@@ -282,20 +289,46 @@ export class TerminalUI {
       return
     }
 
+    if (result.preview?.kind === 'tool') {
+      if (result.tool === 'todo_write') return
+      for (const line of truncateLines(result.output, 8)) process.stdout.write(`  ${c.dim(line)}\n`)
+      return
+    }
+
     process.stdout.write(`  ${okLine('applied')}\n`)
   }
 
-  private async confirm(_call: ToolCall, _preview: ToolPreview): Promise<boolean> {
+  private async confirm(call: ToolCall, _preview: ToolPreview): Promise<boolean> {
     if (this.allowAll) return true
 
     const answer = (await this.ask(`  ${c.yellow('allow?')} ${c.dim('[y]es  [n]o  [a]lways')} `)).toLowerCase()
 
     if (answer === 'a' || answer === 'always') {
       this.allowAll = true
+
+      try {
+        const rule = suggestRule(call.name, JSON.parse(call.arguments || '{}'))
+        addRule(this.options.cwd, rule)
+        process.stdout.write(c.dim(`  saved rule ${rule}\n`))
+      } catch {
+        // The rule is a convenience; ignore malformed arguments.
+      }
+
       return true
     }
 
     return answer === '' || answer === 'y' || answer === 'yes'
+  }
+
+  private renderTodos(todos: Todo[]): void {
+    if (!todos.length) return
+
+    process.stdout.write('\n')
+    for (const todo of todos) {
+      const box =
+        todo.status === 'done' ? c.green('[x]') : todo.status === 'in_progress' ? c.yellow('[~]') : c.dim('[ ]')
+      process.stdout.write(`  ${box} ${todo.text}\n`)
+    }
   }
 
   /**
@@ -366,6 +399,16 @@ export class TerminalUI {
       case 'commands':
         this.listCommands()
         return
+      case 'todos':
+        if (!this.agent.getTodos().length) process.stdout.write(c.dim('  no tasks') + '\n')
+        else {
+          this.renderTodos(this.agent.getTodos())
+          process.stdout.write('\n')
+        }
+        return
+      case 'permissions':
+        this.showPermissions()
+        return
       default: {
         const custom = loadCommands(this.options.cwd).find((item) => item.name === command)
         if (custom) {
@@ -418,6 +461,16 @@ export class TerminalUI {
     }
 
     return blocks.length ? `${text}\n${blocks.join('\n')}` : text
+  }
+
+  private showPermissions(): void {
+    const policy = loadPolicy(this.options.cwd)
+    const file = `${this.options.cwd}/.eschaton/permissions.json`
+
+    process.stdout.write('\n')
+    process.stdout.write(`  ${c.dim('allow')} ${policy.allow.length ? policy.allow.join(', ') : c.dim('none')}\n`)
+    process.stdout.write(`  ${c.dim('deny ')} ${policy.deny.length ? policy.deny.join(', ') : c.dim('none')}\n`)
+    process.stdout.write(`  ${c.dim(`file  ${file}`)}\n\n`)
   }
 
   private listCommands(): void {
@@ -588,6 +641,8 @@ export class TerminalUI {
       ['/providers [n]', 'list providers, or switch to number n'],
       ['/init', 'write an AGENTS.md for this project'],
       ['/commands', 'list custom commands from .eschaton/commands'],
+      ['/todos', 'show the task list'],
+      ['/permissions', 'show allow and deny rules'],
       ['/diff', 'show the working tree diff'],
       ['/undo', 'revert the last file the agent changed'],
       ['/compact', 'summarize the conversation to free context'],

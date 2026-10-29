@@ -4,9 +4,12 @@ import { loadSettings, saveSettings, CONFIG_FILE, maskKey } from './config.js'
 import { TerminalUI } from './ui/tui.js'
 import { startIde } from './ide/server.js'
 import { CodingAgent, MODES, type Mode } from './agent/coding-agent.js'
+import { connectMcp } from './mcp.js'
+import { loadPolicy } from './permissions.js'
+import { loadHooks } from './hooks.js'
 import { c } from './ui/theme.js'
 
-export const VERSION = '3.2.0'
+export const VERSION = '3.3.0'
 
 const DEFAULT_PORT = 4123
 
@@ -177,7 +180,15 @@ async function runPrint(prompt: string, argv: string[]): Promise<number> {
     return 1
   }
 
-  const agent = new CodingAgent(pool, process.cwd(), mode ?? 'Build')
+  const mcp = await connectMcp(process.cwd())
+  process.on('exit', () => mcp.close())
+
+  const agent = new CodingAgent(pool, process.cwd(), mode ?? 'Build', {
+    policy: loadPolicy(process.cwd()),
+    hooks: loadHooks(process.cwd()),
+    extraTools: mcp.tools,
+    extraHandlers: mcp.handlers,
+  })
   let wrote = false
 
   try {
@@ -218,11 +229,27 @@ async function runChat(argv: string[]): Promise<number> {
     return 1
   }
 
+  const mcp = await connectMcp(process.cwd())
+  process.on('exit', () => mcp.close())
+
+  if (mcp.servers.length) {
+    const summary = mcp.servers
+      .map((server) => (server.error ? `${server.name}: ${server.error}` : `${server.name} (${server.tools})`))
+      .join(' · ')
+    process.stdout.write(`${c.dim('  mcp     ')} ${summary}\n`)
+  }
+
   const ui = new TerminalUI(pool, {
     version: VERSION,
     cwd: process.cwd(),
     mode,
     resume,
+    agentOptions: {
+      policy: loadPolicy(process.cwd()),
+      hooks: loadHooks(process.cwd()),
+      extraTools: mcp.tools,
+      extraHandlers: mcp.handlers,
+    },
   })
   await ui.start()
   return 0

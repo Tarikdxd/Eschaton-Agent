@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { readJson } from './json.js'
 
 export interface Settings {
   provider?: string
@@ -13,14 +14,8 @@ export const CONFIG_DIR = path.join(os.homedir(), '.eschaton')
 export const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json')
 
 export function loadSettings(): Settings {
-  try {
-    const raw = fs.readFileSync(CONFIG_FILE, 'utf-8')
-    const parsed = JSON.parse(raw)
-    if (parsed && typeof parsed === 'object') return parsed as Settings
-  } catch {
-    // No config file yet, or it is not valid JSON.
-  }
-  return {}
+  const parsed = readJson<Settings>(CONFIG_FILE)
+  return parsed && typeof parsed === 'object' ? parsed : {}
 }
 
 export function saveSettings(settings: Settings): void {

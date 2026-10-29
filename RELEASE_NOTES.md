@@ -1,5 +1,21 @@
 # Release notes
 
+## 3.3.0
+
+The pieces that make a terminal agent feel complete.
+
+- **MCP servers.** Connect servers from `~/.eschaton/mcp.json` or `.eschaton/mcp.json`; their
+  tools are exposed to the model as `mcp__<server>__<tool>`.
+- **Permission rules.** `permissions.json` with `allow` and `deny` patterns. Answering `a` saves
+  a narrow rule for the current command or folder.
+- **Hooks.** `.eschaton/hooks.json` with `preTool` and `postTool` commands; a failing `preTool`
+  blocks the call.
+- **Task list.** `todo_write` keeps a checklist for multi-step work, rendered in the terminal and
+  available through `/todos`.
+- **Subagents.** The `task` tool runs a read-only agent with its own context and returns a
+  summary, keeping the main conversation small.
+- JSON configs are read with a BOM-tolerant parser, so files saved by Windows editors work.
+
 ## 3.2.0
 
 Compatibility features borrowed from the way other terminal agents work. No code from them is

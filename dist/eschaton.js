@@ -4,23 +4,31 @@
 import process3 from "node:process";
 
 // src/config.ts
-import fs from "node:fs";
+import fs2 from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+// src/json.ts
+import fs from "node:fs";
+function readJson(file) {
+  try {
+    const raw = fs.readFileSync(file, "utf-8").replace(/^\uFEFF/, "");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+// src/config.ts
 var CONFIG_DIR = path.join(os.homedir(), ".eschaton");
 var CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 function loadSettings() {
-  try {
-    const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return parsed;
-  } catch {
-  }
-  return {};
+  const parsed = readJson(CONFIG_FILE);
+  return parsed && typeof parsed === "object" ? parsed : {};
 }
 function saveSettings(settings) {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(settings, null, 2), { encoding: "utf-8", mode: 384 });
+  fs2.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs2.writeFileSync(CONFIG_FILE, JSON.stringify(settings, null, 2), { encoding: "utf-8", mode: 384 });
 }
 function maskKey(key) {
   if (!key) return "not set";
@@ -374,18 +382,18 @@ function linkSignals(signal, timeoutMs) {
 // src/ui/tui.ts
 import readline from "node:readline";
 import process2 from "node:process";
-import fs6 from "node:fs";
-import path6 from "node:path";
+import fs8 from "node:fs";
+import path8 from "node:path";
 import { execSync } from "node:child_process";
 
 // src/agent/coding-agent.ts
-import fs3 from "node:fs";
-import path3 from "node:path";
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import fs5 from "node:fs";
+import path5 from "node:path";
+import { exec as exec2 } from "node:child_process";
+import { promisify as promisify2 } from "node:util";
 
 // src/memory.ts
-import fs2 from "node:fs";
+import fs3 from "node:fs";
 import path2 from "node:path";
 var CANDIDATES = ["ESCHATON.md", "AGENTS.md", "CLAUDE.md"];
 var MAX_BYTES = 16e3;
@@ -394,8 +402,8 @@ function loadMemory(cwd) {
   for (const name of CANDIDATES) {
     const file = path2.join(cwd, name);
     try {
-      if (!fs2.existsSync(file)) continue;
-      const raw = fs2.readFileSync(file, "utf-8");
+      if (!fs3.existsSync(file)) continue;
+      const raw = fs3.readFileSync(file, "utf-8");
       found.push({ source: name, content: raw.slice(0, MAX_BYTES) });
     } catch {
     }
@@ -416,9 +424,161 @@ Project instructions, written by the user. Follow them.
 ${parts.join("\n\n")}`;
 }
 
-// src/agent/coding-agent.ts
+// src/permissions.ts
+import fs4 from "node:fs";
+import os2 from "node:os";
+import path3 from "node:path";
+var GLOBAL_FILE = path3.join(os2.homedir(), ".eschaton", "permissions.json");
+function projectFile(cwd) {
+  return path3.join(cwd, ".eschaton", "permissions.json");
+}
+function loadPolicy(cwd) {
+  const policy = { allow: [], deny: [] };
+  for (const file of [GLOBAL_FILE, projectFile(cwd)]) {
+    const raw = readJson(file);
+    if (!raw) continue;
+    if (Array.isArray(raw.allow)) policy.allow.push(...raw.allow.map(String));
+    if (Array.isArray(raw.deny)) policy.deny.push(...raw.deny.map(String));
+  }
+  return policy;
+}
+function subject(tool, args) {
+  if (tool === "run_command") return String(args.command ?? "");
+  if (tool === "read_file" || tool === "write_file" || tool === "edit_file") return String(args.filePath ?? "");
+  if (tool === "list_dir") return String(args.dirPath ?? ".");
+  if (tool === "search_code") return String(args.pattern ?? "");
+  return "";
+}
+function match(rule, tool, args) {
+  const separator = rule.indexOf(":");
+  const ruleTool = separator >= 0 ? rule.slice(0, separator) : rule;
+  const pattern = separator >= 0 ? rule.slice(separator + 1) : "*";
+  if (ruleTool !== "*" && ruleTool !== tool) return false;
+  if (!pattern || pattern === "*") return true;
+  const value = subject(tool, args);
+  if (pattern.endsWith("*")) return value.startsWith(pattern.slice(0, -1));
+  return value === pattern;
+}
+function decide(policy, tool, args) {
+  for (const rule of policy.deny) {
+    if (match(rule, tool, args)) return "deny";
+  }
+  for (const rule of policy.allow) {
+    if (match(rule, tool, args)) return "allow";
+  }
+  return "ask";
+}
+function suggestRule(tool, args) {
+  const value = subject(tool, args);
+  if (tool === "run_command") {
+    const first = value.trim().split(/\s+/).slice(0, 2).join(" ");
+    return first ? `run_command:${first}*` : "run_command:*";
+  }
+  if (tool === "write_file" || tool === "edit_file") {
+    const dir = value.includes("/") ? value.slice(0, value.lastIndexOf("/") + 1) : "";
+    return dir ? `${tool}:${dir}*` : `${tool}:*`;
+  }
+  return `${tool}:*`;
+}
+function addRule(cwd, rule) {
+  const file = projectFile(cwd);
+  const policy = loadPolicy(cwd);
+  if (policy.allow.includes(rule)) return;
+  const own = readFile(file);
+  own.allow.push(rule);
+  fs4.mkdirSync(path3.dirname(file), { recursive: true });
+  fs4.writeFileSync(file, JSON.stringify(own, null, 2), "utf-8");
+}
+function readFile(file) {
+  const raw = readJson(file);
+  return {
+    allow: Array.isArray(raw?.allow) ? raw.allow.map(String) : [],
+    deny: Array.isArray(raw?.deny) ? raw.deny.map(String) : []
+  };
+}
+
+// src/hooks.ts
+import path4 from "node:path";
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
 var execAsync = promisify(exec);
+function loadHooks(cwd) {
+  const raw = readJson(path4.join(cwd, ".eschaton", "hooks.json"));
+  return {
+    preTool: typeof raw?.preTool === "string" ? raw.preTool : void 0,
+    postTool: typeof raw?.postTool === "string" ? raw.postTool : void 0
+  };
+}
+async function runHook(command, cwd, env, timeoutMs = 3e4) {
+  try {
+    const { stdout, stderr } = await execAsync(command, {
+      cwd,
+      timeout: timeoutMs,
+      maxBuffer: 1024 * 1024,
+      env: { ...process.env, ...env },
+      shell: process.platform === "win32" ? "cmd.exe" : "/bin/sh"
+    });
+    return { ok: true, output: [stdout, stderr].filter(Boolean).join("\n").trim() };
+  } catch (err) {
+    return { ok: false, output: [err?.stdout, err?.stderr, err?.message].filter(Boolean).join("\n") };
+  }
+}
+
+// src/todos.ts
+var TODO_TOOL = {
+  type: "function",
+  function: {
+    name: "todo_write",
+    description: "Create or update the task list for multi-step work. Call it at the start of a complex task and after finishing each step.",
+    parameters: {
+      type: "object",
+      properties: {
+        todos: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              status: { type: "string", enum: ["pending", "in_progress", "done"] }
+            },
+            required: ["text", "status"]
+          }
+        }
+      },
+      required: ["todos"]
+    }
+  }
+};
+function normalizeTodos(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item) => item && typeof item.text === "string").map((item) => ({
+    text: String(item.text).slice(0, 200),
+    status: item.status === "done" || item.status === "in_progress" ? item.status : "pending"
+  }));
+}
+function formatTodo(todo) {
+  const box = todo.status === "done" ? "[x]" : todo.status === "in_progress" ? "[~]" : "[ ]";
+  return `${box} ${todo.text}`;
+}
+
+// src/agent/coding-agent.ts
+var execAsync2 = promisify2(exec2);
 var MODES = ["Build", "Plan", "Review", "Fast"];
+var TASK_TOOL = {
+  type: "function",
+  function: {
+    name: "task",
+    description: "Run a focused read-only subagent with its own context and return its findings. Use it to explore a large area or check several files without filling this conversation.",
+    parameters: {
+      type: "object",
+      properties: {
+        description: { type: "string", description: "Short label, shown to the user" },
+        prompt: { type: "string", description: "What the subagent should find out" }
+      },
+      required: ["description", "prompt"]
+    }
+  }
+};
 var READ_ONLY_MODES = ["Plan", "Review"];
 var MODE_RULES = {
   Build: "Implement the change: read files, edit them, run the project tests, then report what changed.",
@@ -525,19 +685,39 @@ Rules:
 - Paths are relative to the working directory.
 - Run the project's own test or build command after changing code, if one exists.
 - Never invent file contents. If something is unknown, read it.
+- For multi-step work, call todo_write first and update it as you go.
+- Call task to hand a focused read-only investigation to a subagent.
 - Keep answers short. The terminal is not a document editor.${memoryBlock(cwd)}`;
 }
-var CodingAgent = class {
+var CodingAgent = class _CodingAgent {
   pool;
   history = [];
   cwd;
   mode;
   undoStack = [];
-  constructor(pool, cwd = process.cwd(), mode = "Build") {
+  options;
+  tools;
+  handlers;
+  todos = [];
+  constructor(pool, cwd = process.cwd(), mode = "Build", options = {}) {
     this.pool = pool;
     this.cwd = cwd;
     this.mode = mode;
+    this.options = options;
+    this.tools = [...TOOLS, TODO_TOOL, TASK_TOOL, ...options.extraTools ?? []];
+    this.handlers = {
+      ...options.extraHandlers ?? {},
+      todo_write: async (args) => {
+        this.todos = normalizeTodos(args.todos);
+        this.options.onTodos?.(this.todos);
+        return this.todos.length ? this.todos.map(formatTodo).join("\n") : "Task list cleared.";
+      },
+      task: async (args) => this.runSubagent(String(args.prompt ?? ""), String(args.description ?? "subagent"))
+    };
     this.resetHistory();
+  }
+  getTodos() {
+    return this.todos;
   }
   getMode() {
     return this.mode;
@@ -575,7 +755,7 @@ var CodingAgent = class {
       };
       const response = await this.pool.generate({
         messages: this.history,
-        tools: TOOLS,
+        tools: this.tools,
         signal: options.signal,
         onChunk: callbacks.onToken ? forward : void 0,
         onThinking: callbacks.onThinking
@@ -629,12 +809,12 @@ ${truncate(result.output, 3e4)}` });
   undoLast() {
     const entry = this.undoStack.pop();
     if (!entry) return void 0;
-    const file = path3.resolve(this.cwd, entry.path);
+    const file = path5.resolve(this.cwd, entry.path);
     if (entry.before === void 0) {
-      fs3.rmSync(file, { force: true });
+      fs5.rmSync(file, { force: true });
     } else {
-      fs3.mkdirSync(path3.dirname(file), { recursive: true });
-      fs3.writeFileSync(file, entry.before, "utf-8");
+      fs5.mkdirSync(path5.dirname(file), { recursive: true });
+      fs5.writeFileSync(file, entry.before, "utf-8");
     }
     return entry;
   }
@@ -667,39 +847,83 @@ ${summary}` },
         output: `Blocked: ${this.mode} mode is read-only. Switch to Build to change files or run commands.`
       };
     }
+    const decision = this.options.policy ? decide(this.options.policy, tool, args) : "ask";
     const preview = this.describe(tool, args);
     callbacks.onToolStart?.({ id: "", name: tool, arguments: JSON.stringify(args) }, preview);
-    if (preview.needsApproval && options.approve) {
+    if (decision === "deny") {
+      return { tool, isError: true, output: `Blocked by a permission rule for ${tool}.`, preview };
+    }
+    if (preview.needsApproval && decision === "ask" && options.approve) {
       const allowed = await options.approve({ id: "", name: tool, arguments: JSON.stringify(args) }, preview);
       if (!allowed) {
         return { tool, isError: true, output: "Denied by the user. Do not retry; ask what to do instead.", preview };
+      }
+    }
+    const env = {
+      ESCHATON_TOOL: tool,
+      ESCHATON_TOOL_ARGS: JSON.stringify(args).slice(0, 4e3),
+      ESCHATON_CWD: this.cwd
+    };
+    if (this.options.hooks?.preTool) {
+      const hook = await runHook(this.options.hooks.preTool, this.cwd, env);
+      if (!hook.ok) {
+        return {
+          tool,
+          isError: true,
+          output: `Blocked by the preTool hook:
+${hook.output || "non-zero exit"}`,
+          preview
+        };
       }
     }
     if (tool === "write_file" || tool === "edit_file") {
       this.remember(args.filePath);
     }
     try {
-      const output = await this.runTool(tool, args);
+      let output = await this.runTool(tool, args);
+      if (this.options.hooks?.postTool) {
+        const hook = await runHook(this.options.hooks.postTool, this.cwd, env);
+        if (!hook.ok) output += `
+
+postTool hook failed:
+${hook.output}`;
+      }
       return { tool, isError: false, output, preview };
     } catch (err) {
       return { tool, isError: true, output: `${tool} failed: ${err.message}`, preview };
     }
   }
+  async runSubagent(prompt, description) {
+    if (!prompt.trim()) return "task prompt is empty";
+    const subagent = new _CodingAgent(this.pool, this.cwd, "Plan", {
+      extraTools: this.options.extraTools,
+      extraHandlers: this.options.extraHandlers
+    });
+    const result = await subagent.run(
+      `Investigate and report. Do not change files.
+
+${prompt}`,
+      {},
+      { maxSteps: 12 }
+    );
+    return `Subagent "${description}" finished:
+${truncate(result.text, 8e3)}`;
+  }
   remember(filePath) {
-    const file = path3.resolve(this.cwd, filePath);
-    const before = fs3.existsSync(file) ? fs3.readFileSync(file, "utf-8") : void 0;
+    const file = path5.resolve(this.cwd, filePath);
+    const before = fs5.existsSync(file) ? fs5.readFileSync(file, "utf-8") : void 0;
     this.undoStack.push({ path: filePath, before });
     if (this.undoStack.length > 50) this.undoStack.shift();
   }
   describe(tool, args) {
     if (tool === "write_file") {
-      const target = path3.resolve(this.cwd, args.filePath ?? "");
-      const before = fs3.existsSync(target) ? fs3.readFileSync(target, "utf-8") : void 0;
+      const target = path5.resolve(this.cwd, args.filePath ?? "");
+      const before = fs5.existsSync(target) ? fs5.readFileSync(target, "utf-8") : void 0;
       return { kind: "write", path: args.filePath, before, after: String(args.content ?? ""), needsApproval: true };
     }
     if (tool === "edit_file") {
-      const target = path3.resolve(this.cwd, args.filePath ?? "");
-      const before = fs3.existsSync(target) ? fs3.readFileSync(target, "utf-8") : void 0;
+      const target = path5.resolve(this.cwd, args.filePath ?? "");
+      const before = fs5.existsSync(target) ? fs5.readFileSync(target, "utf-8") : void 0;
       const needle = String(args.target ?? "");
       const after = before?.includes(needle) ? before.replace(needle, String(args.replacement ?? "")) : void 0;
       return { kind: "edit", path: args.filePath, before, after, needsApproval: true };
@@ -707,41 +931,43 @@ ${summary}` },
     if (tool === "run_command") return { kind: "command", command: String(args.command ?? ""), needsApproval: true };
     if (tool === "read_file") return { kind: "read", path: args.filePath, needsApproval: false };
     if (tool === "list_dir") return { kind: "list", path: args.dirPath ?? ".", needsApproval: false };
-    return { kind: "search", detail: String(args.pattern ?? ""), needsApproval: false };
+    if (tool === "search_code") return { kind: "search", detail: String(args.pattern ?? ""), needsApproval: false };
+    if (tool === "todo_write" || tool === "task") return { kind: "tool", detail: tool, needsApproval: false };
+    return { kind: "tool", detail: tool, needsApproval: true };
   }
   async runTool(tool, args) {
     switch (tool) {
       case "read_file": {
-        const file = path3.resolve(this.cwd, args.filePath);
-        if (!fs3.existsSync(file)) return `File not found: ${args.filePath}`;
-        const lines = fs3.readFileSync(file, "utf-8").split("\n");
+        const file = path5.resolve(this.cwd, args.filePath);
+        if (!fs5.existsSync(file)) return `File not found: ${args.filePath}`;
+        const lines = fs5.readFileSync(file, "utf-8").split("\n");
         const start = Math.max(1, Number(args.startLine) || 1);
         const end = Math.min(lines.length, Number(args.endLine) || lines.length);
         return lines.slice(start - 1, end).map((line, i) => `${start + i}: ${line}`).join("\n");
       }
       case "write_file": {
-        const file = path3.resolve(this.cwd, args.filePath);
-        fs3.mkdirSync(path3.dirname(file), { recursive: true });
-        fs3.writeFileSync(file, args.content ?? "", "utf-8");
+        const file = path5.resolve(this.cwd, args.filePath);
+        fs5.mkdirSync(path5.dirname(file), { recursive: true });
+        fs5.writeFileSync(file, args.content ?? "", "utf-8");
         return `Wrote ${Buffer.byteLength(args.content ?? "")} bytes to ${args.filePath}`;
       }
       case "edit_file": {
-        const file = path3.resolve(this.cwd, args.filePath);
-        if (!fs3.existsSync(file)) return `File not found: ${args.filePath}`;
-        const content = fs3.readFileSync(file, "utf-8");
+        const file = path5.resolve(this.cwd, args.filePath);
+        if (!fs5.existsSync(file)) return `File not found: ${args.filePath}`;
+        const content = fs5.readFileSync(file, "utf-8");
         const target = args.target ?? "";
         if (!target) return "target is empty";
         if (!content.includes(target)) {
           return `Target string not found in ${args.filePath}. Read the file again and copy the exact text.`;
         }
-        fs3.writeFileSync(file, content.replace(target, args.replacement ?? ""), "utf-8");
+        fs5.writeFileSync(file, content.replace(target, args.replacement ?? ""), "utf-8");
         return `Edited ${args.filePath}`;
       }
       case "run_command": {
         const command = args.command ?? "";
         if (!command) return "command is empty";
         try {
-          const { stdout, stderr } = await execAsync(command, {
+          const { stdout, stderr } = await execAsync2(command, {
             cwd: this.cwd,
             timeout: 12e4,
             maxBuffer: 4 * 1024 * 1024,
@@ -755,29 +981,29 @@ ${err.stderr ?? ""}`.trim();
         }
       }
       case "list_dir": {
-        const dir = path3.resolve(this.cwd, args.dirPath || ".");
-        if (!fs3.existsSync(dir)) return `Directory not found: ${args.dirPath || "."}`;
-        return fs3.readdirSync(dir, { withFileTypes: true }).map((entry) => `${entry.isDirectory() ? "dir  " : "file "} ${entry.name}`).join("\n") || "(empty)";
+        const dir = path5.resolve(this.cwd, args.dirPath || ".");
+        if (!fs5.existsSync(dir)) return `Directory not found: ${args.dirPath || "."}`;
+        return fs5.readdirSync(dir, { withFileTypes: true }).map((entry) => `${entry.isDirectory() ? "dir  " : "file "} ${entry.name}`).join("\n") || "(empty)";
       }
       case "search_code": {
         const pattern = args.pattern ?? "";
         if (!pattern) return "pattern is empty";
-        const root = path3.resolve(this.cwd, args.dirPath || ".");
+        const root = path5.resolve(this.cwd, args.dirPath || ".");
         const hits = [];
         const skip = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", ".next"]);
         const walk = (dir) => {
           if (hits.length >= 50) return;
-          for (const entry of fs3.readdirSync(dir, { withFileTypes: true })) {
+          for (const entry of fs5.readdirSync(dir, { withFileTypes: true })) {
             if (hits.length >= 50) return;
             if (skip.has(entry.name)) continue;
-            const full = path3.join(dir, entry.name);
+            const full = path5.join(dir, entry.name);
             if (entry.isDirectory()) {
               walk(full);
               continue;
             }
             try {
-              if (fs3.statSync(full).size > 512 * 1024) continue;
-              if (fs3.readFileSync(full, "utf-8").includes(pattern)) hits.push(path3.relative(root, full));
+              if (fs5.statSync(full).size > 512 * 1024) continue;
+              if (fs5.readFileSync(full, "utf-8").includes(pattern)) hits.push(path5.relative(root, full));
             } catch {
             }
           }
@@ -785,8 +1011,11 @@ ${err.stderr ?? ""}`.trim();
         walk(root);
         return hits.join("\n") || "No matches.";
       }
-      default:
+      default: {
+        const handler = this.handlers[tool];
+        if (handler) return handler(args);
         return `Unknown tool: ${tool}`;
+      }
     }
   }
   compactHistory(maxChars = 12e4) {
@@ -835,12 +1064,12 @@ function accumulate(target, next) {
 }
 
 // src/session.ts
-import fs4 from "node:fs";
-import os2 from "node:os";
-import path4 from "node:path";
-var SESSION_DIR = path4.join(os2.homedir(), ".eschaton", "sessions");
+import fs6 from "node:fs";
+import os3 from "node:os";
+import path6 from "node:path";
+var SESSION_DIR = path6.join(os3.homedir(), ".eschaton", "sessions");
 function saveSession(session) {
-  fs4.mkdirSync(SESSION_DIR, { recursive: true });
+  fs6.mkdirSync(SESSION_DIR, { recursive: true });
   const record = {
     id: session.id ?? newId(),
     createdAt: (/* @__PURE__ */ new Date()).toISOString(),
@@ -849,27 +1078,27 @@ function saveSession(session) {
     model: session.model,
     messages: session.messages
   };
-  fs4.writeFileSync(path4.join(SESSION_DIR, `${record.id}.json`), JSON.stringify(record, null, 2), "utf-8");
+  fs6.writeFileSync(path6.join(SESSION_DIR, `${record.id}.json`), JSON.stringify(record, null, 2), "utf-8");
   prune();
   return record;
 }
 function loadSession(id) {
   try {
-    const raw = fs4.readFileSync(path4.join(SESSION_DIR, `${id}.json`), "utf-8");
+    const raw = fs6.readFileSync(path6.join(SESSION_DIR, `${id}.json`), "utf-8");
     return JSON.parse(raw);
   } catch {
     return null;
   }
 }
 function latestSession(cwd = process.cwd()) {
-  const sessions = listSessions().filter((session) => path4.resolve(session.cwd) === path4.resolve(cwd));
+  const sessions = listSessions().filter((session) => path6.resolve(session.cwd) === path6.resolve(cwd));
   return sessions[0] ?? null;
 }
 function listSessions() {
   try {
-    return fs4.readdirSync(SESSION_DIR).filter((name) => name.endsWith(".json")).map((name) => {
+    return fs6.readdirSync(SESSION_DIR).filter((name) => name.endsWith(".json")).map((name) => {
       try {
-        return JSON.parse(fs4.readFileSync(path4.join(SESSION_DIR, name), "utf-8"));
+        return JSON.parse(fs6.readFileSync(path6.join(SESSION_DIR, name), "utf-8"));
       } catch {
         return null;
       }
@@ -882,7 +1111,7 @@ function prune(keep = 50) {
   const sessions = listSessions();
   for (const session of sessions.slice(keep)) {
     try {
-      fs4.unlinkSync(path4.join(SESSION_DIR, `${session.id}.json`));
+      fs6.unlinkSync(path6.join(SESSION_DIR, `${session.id}.json`));
     } catch {
     }
   }
@@ -894,18 +1123,18 @@ function newId() {
 }
 
 // src/commands.ts
-import fs5 from "node:fs";
-import path5 from "node:path";
-var COMMAND_DIR = path5.join(".eschaton", "commands");
+import fs7 from "node:fs";
+import path7 from "node:path";
+var COMMAND_DIR = path7.join(".eschaton", "commands");
 function loadCommands(cwd) {
-  const dir = path5.join(cwd, COMMAND_DIR);
-  if (!fs5.existsSync(dir)) return [];
+  const dir = path7.join(cwd, COMMAND_DIR);
+  if (!fs7.existsSync(dir)) return [];
   const commands = [];
-  for (const entry of fs5.readdirSync(dir, { withFileTypes: true })) {
+  for (const entry of fs7.readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
     try {
-      const source = path5.join(COMMAND_DIR, entry.name);
-      const body = fs5.readFileSync(path5.join(dir, entry.name), "utf-8");
+      const source = path7.join(COMMAND_DIR, entry.name);
+      const body = fs7.readFileSync(path7.join(dir, entry.name), "utf-8");
       const firstLine2 = body.split("\n").map((line) => line.trim()).find((line) => line && !line.startsWith("#")) ?? "";
       commands.push({
         name: entry.name.replace(/\.md$/, ""),
@@ -996,6 +1225,7 @@ function formatTokens(prompt, completion) {
 }
 function previewHeader(preview) {
   if (preview.kind === "command") return c.gray(`$ ${preview.command}`);
+  if (preview.kind === "tool") return c.gray(`tool ${preview.detail}`);
   if (preview.kind === "read") return c.gray(`read ${preview.path}`);
   if (preview.kind === "list") return c.gray(`list ${preview.path}`);
   if (preview.kind === "search") return c.gray(`search "${preview.detail}"`);
@@ -1033,7 +1263,10 @@ var TerminalUI = class {
   constructor(pool, options) {
     this.pool = pool;
     this.options = options;
-    this.agent = new CodingAgent(pool, options.cwd, options.mode ?? "Build");
+    this.agent = new CodingAgent(pool, options.cwd, options.mode ?? "Build", {
+      ...options.agentOptions,
+      onTodos: (todos) => this.renderTodos(todos)
+    });
     this.sessionId = options.sessionId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     if (options.resume) {
       const session = options.sessionId ? loadSession(options.sessionId) : latestSession(options.cwd);
@@ -1227,17 +1460,39 @@ var TerminalUI = class {
 `);
       return;
     }
+    if (result.preview?.kind === "tool") {
+      if (result.tool === "todo_write") return;
+      for (const line of truncateLines(result.output, 8)) process2.stdout.write(`  ${c.dim(line)}
+`);
+      return;
+    }
     process2.stdout.write(`  ${okLine("applied")}
 `);
   }
-  async confirm(_call, _preview) {
+  async confirm(call, _preview) {
     if (this.allowAll) return true;
     const answer = (await this.ask(`  ${c.yellow("allow?")} ${c.dim("[y]es  [n]o  [a]lways")} `)).toLowerCase();
     if (answer === "a" || answer === "always") {
       this.allowAll = true;
+      try {
+        const rule = suggestRule(call.name, JSON.parse(call.arguments || "{}"));
+        addRule(this.options.cwd, rule);
+        process2.stdout.write(c.dim(`  saved rule ${rule}
+`));
+      } catch {
+      }
       return true;
     }
     return answer === "" || answer === "y" || answer === "yes";
+  }
+  renderTodos(todos) {
+    if (!todos.length) return;
+    process2.stdout.write("\n");
+    for (const todo of todos) {
+      const box = todo.status === "done" ? c.green("[x]") : todo.status === "in_progress" ? c.yellow("[~]") : c.dim("[ ]");
+      process2.stdout.write(`  ${box} ${todo.text}
+`);
+    }
   }
   /**
    * Asks on the existing interface. The run loop is busy while this happens, so
@@ -1304,6 +1559,16 @@ var TerminalUI = class {
       case "commands":
         this.listCommands();
         return;
+      case "todos":
+        if (!this.agent.getTodos().length) process2.stdout.write(c.dim("  no tasks") + "\n");
+        else {
+          this.renderTodos(this.agent.getTodos());
+          process2.stdout.write("\n");
+        }
+        return;
+      case "permissions":
+        this.showPermissions();
+        return;
       default: {
         const custom = loadCommands(this.options.cwd).find((item) => item.name === command);
         if (custom) {
@@ -1335,12 +1600,12 @@ var TerminalUI = class {
     if (!matches.length) return text;
     const blocks = [];
     let budget = 4e4;
-    for (const match of matches.slice(0, 5)) {
-      const relative = match[1];
-      const file = path6.resolve(this.options.cwd, relative);
+    for (const match2 of matches.slice(0, 5)) {
+      const relative = match2[1];
+      const file = path8.resolve(this.options.cwd, relative);
       try {
         if (budget <= 0) break;
-        const content = fs6.readFileSync(file, "utf-8");
+        const content = fs8.readFileSync(file, "utf-8");
         const slice = content.slice(0, Math.min(budget, 2e4));
         budget -= slice.length;
         blocks.push(`
@@ -1352,6 +1617,18 @@ ${slice}
     }
     return blocks.length ? `${text}
 ${blocks.join("\n")}` : text;
+  }
+  showPermissions() {
+    const policy = loadPolicy(this.options.cwd);
+    const file = `${this.options.cwd}/.eschaton/permissions.json`;
+    process2.stdout.write("\n");
+    process2.stdout.write(`  ${c.dim("allow")} ${policy.allow.length ? policy.allow.join(", ") : c.dim("none")}
+`);
+    process2.stdout.write(`  ${c.dim("deny ")} ${policy.deny.length ? policy.deny.join(", ") : c.dim("none")}
+`);
+    process2.stdout.write(`  ${c.dim(`file  ${file}`)}
+
+`);
   }
   listCommands() {
     const commands = loadCommands(this.options.cwd);
@@ -1452,12 +1729,12 @@ ${blocks.join("\n")}` : text;
       const next = MODES[(MODES.indexOf(this.agent.getMode()) + 1) % MODES.length];
       this.agent.setMode(next);
     } else {
-      const match = MODES.find((mode) => mode.toLowerCase() === wanted);
-      if (!match) {
+      const match2 = MODES.find((mode) => mode.toLowerCase() === wanted);
+      if (!match2) {
         process2.stdout.write(c.dim("  modes: build, plan, review, fast") + "\n");
         return;
       }
-      this.agent.setMode(match);
+      this.agent.setMode(match2);
     }
     this.setPrompt();
     process2.stdout.write(`  ${c.dim("mode")} ${this.modeLabel()}
@@ -1501,6 +1778,8 @@ ${blocks.join("\n")}` : text;
       ["/providers [n]", "list providers, or switch to number n"],
       ["/init", "write an AGENTS.md for this project"],
       ["/commands", "list custom commands from .eschaton/commands"],
+      ["/todos", "show the task list"],
+      ["/permissions", "show allow and deny rules"],
       ["/diff", "show the working tree diff"],
       ["/undo", "revert the last file the agent changed"],
       ["/compact", "summarize the conversation to free context"],
@@ -1572,8 +1851,8 @@ function firstLine(text) {
 
 // src/ide/server.ts
 import http from "node:http";
-import fs7 from "node:fs";
-import path7 from "node:path";
+import fs9 from "node:fs";
+import path9 from "node:path";
 import { execFile, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 var SKIP_DIRS = /* @__PURE__ */ new Set(["node_modules", ".git", "dist", "build", ".next", ".cache", "coverage"]);
@@ -1590,7 +1869,7 @@ var MIME = {
   ".ttf": "font/ttf"
 };
 async function startIde(options) {
-  const root = path7.resolve(options.cwd);
+  const root = path9.resolve(options.cwd);
   const pool = new ProviderPool(providersFromSettings());
   if (options.model) pool.setModel(options.model);
   await pool.detectLocal();
@@ -1622,7 +1901,7 @@ async function startIde(options) {
     if (route === "/api/state") {
       return sendJson(res, 200, {
         cwd: root,
-        name: path7.basename(root),
+        name: path9.basename(root),
         model: pool.active()?.model ?? null,
         provider: pool.active()?.label ?? null,
         providers: pool.list().map((provider) => ({
@@ -1631,7 +1910,7 @@ async function startIde(options) {
           model: provider.model,
           local: provider.local
         })),
-        sessions: listSessions().filter((session) => path7.resolve(session.cwd) === root).slice(0, 20).map((session) => ({
+        sessions: listSessions().filter((session) => path9.resolve(session.cwd) === root).slice(0, 20).map((session) => ({
           id: session.id,
           createdAt: session.createdAt,
           mode: session.mode,
@@ -1644,9 +1923,9 @@ async function startIde(options) {
       const relative = url2.searchParams.get("path") ?? ".";
       const target = safePath(root, relative);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      const entries = fs7.readdirSync(target, { withFileTypes: true }).filter((entry) => !entry.name.startsWith(".")).map((entry) => ({
+      const entries = fs9.readdirSync(target, { withFileTypes: true }).filter((entry) => !entry.name.startsWith(".")).map((entry) => ({
         name: entry.name,
-        path: path7.relative(root, path7.join(target, entry.name)).replace(/\\/g, "/"),
+        path: path9.relative(root, path9.join(target, entry.name)).replace(/\\/g, "/"),
         dir: entry.isDirectory()
       })).sort((a, b) => Number(b.dir) - Number(a.dir) || a.name.localeCompare(b.name));
       return sendJson(res, 200, { entries });
@@ -1660,49 +1939,49 @@ async function startIde(options) {
       const relative = url2.searchParams.get("path") ?? "";
       const target = safePath(root, relative);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (!fs7.existsSync(target) || fs7.statSync(target).isDirectory()) {
+      if (!fs9.existsSync(target) || fs9.statSync(target).isDirectory()) {
         return sendJson(res, 404, { error: "file not found" });
       }
-      if (fs7.statSync(target).size > MAX_FILE_BYTES) return sendJson(res, 413, { error: "file is too large" });
-      return sendJson(res, 200, { path: relative, content: fs7.readFileSync(target, "utf-8") });
+      if (fs9.statSync(target).size > MAX_FILE_BYTES) return sendJson(res, 413, { error: "file is too large" });
+      return sendJson(res, 200, { path: relative, content: fs9.readFileSync(target, "utf-8") });
     }
     if (route === "/api/file" && req.method === "PUT") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       const target = safePath(root, body.path);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      fs7.mkdirSync(path7.dirname(target), { recursive: true });
-      fs7.writeFileSync(target, body.content ?? "", "utf-8");
+      fs9.mkdirSync(path9.dirname(target), { recursive: true });
+      fs9.writeFileSync(target, body.content ?? "", "utf-8");
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/file" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       const target = safePath(root, body.path);
       if (!target) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (fs7.existsSync(target)) return sendJson(res, 409, { error: "already exists" });
+      if (fs9.existsSync(target)) return sendJson(res, 409, { error: "already exists" });
       if (body.dir) {
-        fs7.mkdirSync(target, { recursive: true });
+        fs9.mkdirSync(target, { recursive: true });
       } else {
-        fs7.mkdirSync(path7.dirname(target), { recursive: true });
-        fs7.writeFileSync(target, "", "utf-8");
+        fs9.mkdirSync(path9.dirname(target), { recursive: true });
+        fs9.writeFileSync(target, "", "utf-8");
       }
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/file" && req.method === "DELETE") {
       const target = safePath(root, url2.searchParams.get("path") ?? "");
       if (!target || target === root) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (!fs7.existsSync(target)) return sendJson(res, 404, { error: "not found" });
-      fs7.rmSync(target, { recursive: true, force: true });
+      if (!fs9.existsSync(target)) return sendJson(res, 404, { error: "not found" });
+      fs9.rmSync(target, { recursive: true, force: true });
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/rename" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       const from = safePath(root, body.from);
       const to = safePath(root, body.to);
       if (!from || !to) return sendJson(res, 400, { error: "path outside the workspace" });
-      if (!fs7.existsSync(from)) return sendJson(res, 404, { error: "not found" });
-      if (fs7.existsSync(to)) return sendJson(res, 409, { error: "target already exists" });
-      fs7.mkdirSync(path7.dirname(to), { recursive: true });
-      fs7.renameSync(from, to);
+      if (!fs9.existsSync(from)) return sendJson(res, 404, { error: "not found" });
+      if (fs9.existsSync(to)) return sendJson(res, 409, { error: "target already exists" });
+      fs9.mkdirSync(path9.dirname(to), { recursive: true });
+      fs9.renameSync(from, to);
       return sendJson(res, 200, { ok: true });
     }
     if (route === "/api/search") {
@@ -1713,10 +1992,10 @@ async function startIde(options) {
       walk(root, files);
       for (const relative of files) {
         if (results.length >= 200) break;
-        const file = path7.join(root, relative);
+        const file = path9.join(root, relative);
         try {
-          if (fs7.statSync(file).size > 512 * 1024) continue;
-          const content = fs7.readFileSync(file, "utf-8");
+          if (fs9.statSync(file).size > 512 * 1024) continue;
+          const content = fs9.readFileSync(file, "utf-8");
           if (content.includes("\0")) continue;
           content.split("\n").forEach((text, index) => {
             if (results.length < 200 && text.toLowerCase().includes(query.toLowerCase())) {
@@ -1753,13 +2032,13 @@ async function startIde(options) {
       return sendJson(res, 200, { diff: out });
     }
     if (route === "/api/git/stage" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       const args = body.staged ? ["add", "--", body.path] : ["restore", "--staged", "--", body.path];
       const { code, err } = await runGit(args);
       return sendJson(res, code === 0 ? 200 : 500, { ok: code === 0, error: err });
     }
     if (route === "/api/git/commit" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       if (!body.message?.trim()) return sendJson(res, 400, { error: "empty message" });
       const { code, out, err } = await runGit(["commit", "-m", body.message]);
       return sendJson(res, code === 0 ? 200 : 500, { ok: code === 0, output: out + err });
@@ -1774,12 +2053,12 @@ async function startIde(options) {
       return sendJson(res, 200, { output: [pull.out, pull.err, push.out, push.err].filter(Boolean).join("\n") });
     }
     if (route === "/api/model" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       pool.setModel(body.model);
       return sendJson(res, 200, { model: pool.active()?.model });
     }
     if (route === "/api/exec" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       res.writeHead(200, {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
@@ -1806,11 +2085,11 @@ async function startIde(options) {
       return;
     }
     if (route === "/api/chat" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       return chat(res, body);
     }
     if (route === "/api/approve" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       approvals.get(body.id)?.(Boolean(body.allow));
       approvals.delete(body.id);
       return sendJson(res, 200, { ok: true });
@@ -1884,21 +2163,21 @@ async function startIde(options) {
   }
   async function serveStatic(route, res) {
     const clean = route === "/" ? "index.html" : decodeURIComponent(route).replace(/^\/+/, "");
-    const target = path7.join(publicDir, clean);
-    if (!target.startsWith(publicDir) || !fs7.existsSync(target) || fs7.statSync(target).isDirectory()) {
+    const target = path9.join(publicDir, clean);
+    if (!target.startsWith(publicDir) || !fs9.existsSync(target) || fs9.statSync(target).isDirectory()) {
       return sendJson(res, 404, { error: "not found" });
     }
-    res.writeHead(200, { "Content-Type": MIME[path7.extname(target)] ?? "application/octet-stream" });
-    fs7.createReadStream(target).pipe(res);
+    res.writeHead(200, { "Content-Type": MIME[path9.extname(target)] ?? "application/octet-stream" });
+    fs9.createReadStream(target).pipe(res);
   }
   function walk(dir, out) {
     if (out.length >= MAX_FILES) return;
-    for (const entry of fs7.readdirSync(dir, { withFileTypes: true })) {
+    for (const entry of fs9.readdirSync(dir, { withFileTypes: true })) {
       if (out.length >= MAX_FILES) return;
       if (entry.name.startsWith(".") || SKIP_DIRS.has(entry.name)) continue;
-      const full = path7.join(dir, entry.name);
+      const full = path9.join(dir, entry.name);
       if (entry.isDirectory()) walk(full, out);
-      else out.push(path7.relative(root, full).replace(/\\/g, "/"));
+      else out.push(path9.relative(root, full).replace(/\\/g, "/"));
     }
   }
   const port = await listen(server, options.port);
@@ -1923,15 +2202,15 @@ function publicPreview(preview) {
   };
 }
 function safePath(root, relative) {
-  const target = path7.resolve(root, relative);
-  const normalizedRoot = root.endsWith(path7.sep) ? root : root + path7.sep;
+  const target = path9.resolve(root, relative);
+  const normalizedRoot = root.endsWith(path9.sep) ? root : root + path9.sep;
   return target === root || target.startsWith(normalizedRoot) ? target : null;
 }
 function findPublicDir() {
-  const here = path7.dirname(fileURLToPath(import.meta.url));
-  const candidates = [path7.join(here, "public"), path7.join(here, "../public"), path7.join(here, "web")];
+  const here = path9.dirname(fileURLToPath(import.meta.url));
+  const candidates = [path9.join(here, "public"), path9.join(here, "../public"), path9.join(here, "web")];
   for (const candidate of candidates) {
-    if (fs7.existsSync(path7.join(candidate, "index.html"))) return candidate;
+    if (fs9.existsSync(path9.join(candidate, "index.html"))) return candidate;
   }
   throw new Error("IDE assets not found. Run `npm run build` first.");
 }
@@ -1946,7 +2225,7 @@ function emit(res, payload) {
 
 `);
 }
-function readJson(req) {
+function readJson2(req) {
   return new Promise((resolve, reject) => {
     let raw = "";
     req.on("data", (chunk) => {
@@ -1993,8 +2272,158 @@ function openBrowser(url) {
   }
 }
 
+// src/mcp.ts
+import os4 from "node:os";
+import path10 from "node:path";
+import { spawn as spawn2 } from "node:child_process";
+var GLOBAL_FILE2 = path10.join(os4.homedir(), ".eschaton", "mcp.json");
+var McpConnection = class {
+  child;
+  nextId = 1;
+  pending = /* @__PURE__ */ new Map();
+  buffer = "";
+  stderr = "";
+  closed = false;
+  constructor(command, args, cwd, env = {}) {
+    const line = [command, ...args].join(" ");
+    this.child = spawn2(line, {
+      cwd,
+      shell: true,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, ...env }
+    });
+    this.child.stdout?.on("data", (chunk) => this.onData(String(chunk)));
+    this.child.stderr?.on("data", (chunk) => {
+      this.stderr = (this.stderr + String(chunk)).slice(-2e3);
+    });
+    this.child.on("close", () => {
+      this.closed = true;
+      for (const [, item] of this.pending) item.reject(new Error(`MCP server exited. ${this.stderr}`.trim()));
+      this.pending.clear();
+    });
+  }
+  onData(chunk) {
+    this.buffer += chunk;
+    let newline = this.buffer.indexOf("\n");
+    while (newline >= 0) {
+      const line = this.buffer.slice(0, newline).trim();
+      this.buffer = this.buffer.slice(newline + 1);
+      newline = this.buffer.indexOf("\n");
+      if (!line) continue;
+      try {
+        const message = JSON.parse(line);
+        if (typeof message.id === "number" && this.pending.has(message.id)) {
+          const item = this.pending.get(message.id);
+          this.pending.delete(message.id);
+          if (message.error) item.reject(new Error(message.error.message ?? "MCP error"));
+          else item.resolve(message.result);
+        }
+      } catch {
+      }
+    }
+  }
+  request(method, params, timeoutMs = 2e4) {
+    if (this.closed) return Promise.reject(new Error("MCP server is not running"));
+    const id = this.nextId++;
+    const payload = JSON.stringify({ jsonrpc: "2.0", id, method, params });
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`MCP ${method} timed out. ${this.stderr}`.trim()));
+      }, timeoutMs);
+      this.pending.set(id, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (error) => {
+          clearTimeout(timer);
+          reject(error);
+        }
+      });
+      this.child.stdin?.write(`${payload}
+`);
+    });
+  }
+  notify(method, params) {
+    this.child.stdin?.write(`${JSON.stringify({ jsonrpc: "2.0", method, params })}
+`);
+  }
+  close() {
+    try {
+      this.child.kill();
+    } catch {
+    }
+  }
+};
+function loadConfig(cwd) {
+  const servers = {};
+  for (const file of [GLOBAL_FILE2, path10.join(cwd, ".eschaton", "mcp.json")]) {
+    const raw = readJson(file);
+    if (!raw?.servers || typeof raw.servers !== "object") continue;
+    for (const [name, config] of Object.entries(raw.servers)) {
+      if (!config?.command) continue;
+      servers[name] = {
+        command: String(config.command),
+        args: Array.isArray(config.args) ? config.args.map(String) : [],
+        env: config.env && typeof config.env === "object" ? config.env : void 0
+      };
+    }
+  }
+  return servers;
+}
+async function connectMcp(cwd) {
+  const bundle = { tools: [], handlers: {}, servers: [], close: () => {
+  } };
+  const connections = [];
+  const configs = loadConfig(cwd);
+  bundle.close = () => connections.forEach((connection) => connection.close());
+  for (const [name, config] of Object.entries(configs)) {
+    const connection = new McpConnection(config.command, config.args ?? [], cwd, config.env);
+    connections.push(connection);
+    try {
+      await connection.request("initialize", {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "eschaton-code", version: "3.3.0" }
+      });
+      connection.notify("notifications/initialized");
+      const listing = await connection.request("tools/list", {});
+      const tools = Array.isArray(listing?.tools) ? listing.tools : [];
+      for (const tool of tools) {
+        const original = tool.name;
+        const exposed = `mcp__${sanitize(name)}__${sanitize(original)}`;
+        bundle.tools.push({
+          type: "function",
+          function: {
+            name: exposed,
+            description: `[${name}] ${tool.description ?? original}`,
+            parameters: tool.inputSchema ?? { type: "object", properties: {} }
+          }
+        });
+        bundle.handlers[exposed] = async (args) => {
+          const result = await connection.request("tools/call", { name: original, arguments: args }, 12e4);
+          const content = Array.isArray(result?.content) ? result.content : [];
+          const text = content.map((item) => item?.type === "text" ? item.text : item?.type ? `[${item.type}]` : "").filter(Boolean).join("\n");
+          if (result?.isError) throw new Error(text || "MCP tool failed");
+          return text || "(no output)";
+        };
+      }
+      bundle.servers.push({ name, tools: tools.length });
+    } catch (err) {
+      connection.close();
+      bundle.servers.push({ name, tools: 0, error: String(err?.message ?? err) });
+    }
+  }
+  return bundle;
+}
+function sanitize(name) {
+  return name.replace(/[^a-zA-Z0-9_]/g, "_");
+}
+
 // src/cli.ts
-var VERSION = "3.2.0";
+var VERSION = "3.3.0";
 var DEFAULT_PORT = 4123;
 function setupText() {
   return `
@@ -2144,7 +2573,14 @@ async function runPrint(prompt, argv) {
     process3.stdout.write(setupText());
     return 1;
   }
-  const agent = new CodingAgent(pool, process3.cwd(), mode ?? "Build");
+  const mcp = await connectMcp(process3.cwd());
+  process3.on("exit", () => mcp.close());
+  const agent = new CodingAgent(pool, process3.cwd(), mode ?? "Build", {
+    policy: loadPolicy(process3.cwd()),
+    hooks: loadHooks(process3.cwd()),
+    extraTools: mcp.tools,
+    extraHandlers: mcp.handlers
+  });
   let wrote = false;
   try {
     const result = await agent.run(
@@ -2180,11 +2616,24 @@ async function runChat(argv) {
     process3.stdout.write(setupText());
     return 1;
   }
+  const mcp = await connectMcp(process3.cwd());
+  process3.on("exit", () => mcp.close());
+  if (mcp.servers.length) {
+    const summary = mcp.servers.map((server) => server.error ? `${server.name}: ${server.error}` : `${server.name} (${server.tools})`).join(" \xB7 ");
+    process3.stdout.write(`${c.dim("  mcp     ")} ${summary}
+`);
+  }
   const ui = new TerminalUI(pool, {
     version: VERSION,
     cwd: process3.cwd(),
     mode,
-    resume
+    resume,
+    agentOptions: {
+      policy: loadPolicy(process3.cwd()),
+      hooks: loadHooks(process3.cwd()),
+      extraTools: mcp.tools,
+      extraHandlers: mcp.handlers
+    }
   });
   await ui.start();
   return 0;
