@@ -8,6 +8,17 @@
     "freebuff": "./bin/freebuff.js",
     "opencode": "./bin/eschaton.js"
   },
+  "files": [
+    "bin",
+    "cli",
+    "common",
+    "packages",
+    "agents",
+    "sdk",
+    "freebuff",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "start": "node ./bin/eschaton.js",
     "dev": "bun --cwd cli dev",
