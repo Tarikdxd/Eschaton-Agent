@@ -1,8 +1,9 @@
 name: Publish to npm
 
+# npm requires a one-time password for publishing, so this workflow only works
+# with a granular token that has "bypass 2FA" enabled. Until such a token is
+# stored as NPM_TOKEN, publish from a machine with `npm publish --access public`.
 on:
-  release:
-    types: [published]
   workflow_dispatch:
 
 jobs:
