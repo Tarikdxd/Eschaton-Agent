@@ -1,9 +1,9 @@
 /**
  * Provider layer.
  *
- * Every provider speaks the OpenAI chat completions protocol, so the same
- * request body works for hosted APIs and for local servers. Providers are tried
- * in order and the pool falls over to the next one when a request fails.
+ * Every provider speaks the OpenAI chat completions protocol, so one request
+ * shape works for hosted APIs and local servers. Providers are tried in order
+ * and the pool falls over to the next one when a request fails.
  *
  * Keys come from environment variables or from ~/.eschaton/config.json.
  * Local servers are discovered by probing their /models endpoint.
@@ -14,6 +14,11 @@ import { loadSettings, type Settings } from '../config.js'
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: string
+}
+
+export interface Usage {
+  promptTokens?: number
+  completionTokens?: number
 }
 
 export interface Provider {
@@ -32,8 +37,15 @@ export interface GenerateOptions {
   messages: ChatMessage[]
   temperature?: number
   maxTokens?: number
+  signal?: AbortSignal
   onChunk?: (chunk: string) => void
   onThinking?: (thought: string) => void
+}
+
+export interface GenerateResult {
+  text: string
+  usage?: Usage
+  provider: string
 }
 
 type Kind = 'deepseek' | 'openrouter' | 'groq' | 'ollama' | 'lmstudio' | 'custom'
@@ -96,7 +108,8 @@ const DEFAULTS: Record<Kind, KindDefaults> = {
   },
 }
 
-const KIND_ORDER: Kind[] = ['deepseek', 'openrouter', 'groq', 'custom']
+const HOSTED: Kind[] = ['deepseek', 'openrouter', 'groq', 'custom']
+export const LOCAL_KINDS = ['ollama', 'lmstudio'] as const
 
 function makeProvider(kind: Kind, settings: Settings, env: NodeJS.ProcessEnv): Provider | null {
   const defaults = DEFAULTS[kind]
@@ -132,15 +145,17 @@ function makeProvider(kind: Kind, settings: Settings, env: NodeJS.ProcessEnv): P
   }
 }
 
-export function providersFromSettings(settings: Settings = loadSettings(), env: NodeJS.ProcessEnv = process.env): Provider[] {
+export function providersFromSettings(
+  settings: Settings = loadSettings(),
+  env: NodeJS.ProcessEnv = process.env,
+): Provider[] {
   const providers: Provider[] = []
 
-  for (const kind of KIND_ORDER) {
+  for (const kind of HOSTED) {
     const provider = makeProvider(kind, settings, env)
     if (provider) providers.push(provider)
   }
 
-  // A provider selected in the config file should be tried first.
   if (settings.provider) {
     providers.sort((a, b) => Number(b.id === settings.provider) - Number(a.id === settings.provider))
   }
@@ -148,14 +163,17 @@ export function providersFromSettings(settings: Settings = loadSettings(), env: 
   return providers
 }
 
-async function listLocalModels(baseUrl: string, timeoutMs: number): Promise<string[]> {
+export async function listLocalModels(baseUrl: string, timeoutMs = 800): Promise<string[]> {
   const modelsUrl = baseUrl.replace(/\/v1\/chat\/completions$/, '/v1/models')
   try {
     const res = await fetch(modelsUrl, { signal: AbortSignal.timeout(timeoutMs) })
     if (!res.ok) return []
-    const body = (await res.json()) as { data?: Array<{ id?: string }>; models?: Array<{ name?: string }> }
+    const body = (await res.json()) as {
+      data?: Array<{ id?: string }>
+      models?: Array<{ name?: string }>
+    }
     const ids = body.data?.map((m) => m.id).filter(Boolean) as string[] | undefined
-    if (ids && ids.length) return ids
+    if (ids?.length) return ids
     return (body.models?.map((m) => m.name).filter(Boolean) as string[]) || []
   } catch {
     return []
@@ -184,24 +202,26 @@ export class ProviderPool {
     return this.providers[index]
   }
 
+  public useById(id: string): Provider | undefined {
+    const index = this.providers.findIndex((provider) => provider.id === id)
+    return index >= 0 ? this.use(index) : undefined
+  }
+
   public setModel(model: string): void {
     const provider = this.active()
     if (provider) provider.model = model
   }
 
-  /**
-   * Probes Ollama and LM Studio and adds whichever of them is running.
-   * The first model containing "deepseek" is preferred.
-   */
+  /** Probes Ollama and LM Studio and adds whichever of them is running. */
   public async detectLocal(timeoutMs = 800): Promise<Provider[]> {
     const found: Provider[] = []
 
-    for (const kind of ['ollama', 'lmstudio'] as const) {
+    for (const kind of LOCAL_KINDS) {
       const defaults = DEFAULTS[kind]
       const models = await listLocalModels(defaults.baseUrl, timeoutMs)
       if (!models.length) continue
 
-      const model = models.find((m) => m.toLowerCase().includes('deepseek')) ?? models[0]!
+      const model = models.find((name) => name.toLowerCase().includes('deepseek')) ?? models[0]!
       found.push({
         id: kind,
         label: defaults.label,
@@ -216,16 +236,16 @@ export class ProviderPool {
     return found
   }
 
-  public async generate(options: GenerateOptions): Promise<string> {
+  public async generate(options: GenerateOptions): Promise<GenerateResult> {
     if (!this.providers.length) {
-      throw new Error('No provider configured. Run `eschaton setup` or set an API key.')
+      throw new Error('No provider configured. Run `eschaton setup`.')
     }
 
     const now = Date.now()
     const order = [
       ...this.providers.slice(this.activeIndex),
       ...this.providers.slice(0, this.activeIndex),
-    ].filter((p) => p.cooldownUntil <= now)
+    ].filter((provider) => provider.cooldownUntil <= now)
 
     if (!order.length) {
       throw new Error('Every provider is cooling down after a failure. Wait a minute and try again.')
@@ -235,11 +255,13 @@ export class ProviderPool {
 
     for (const provider of order) {
       try {
-        const output = await this.call(provider, options)
+        const result = await this.call(provider, options)
         this.activeIndex = this.providers.indexOf(provider)
         provider.cooldownUntil = 0
-        return output
+        return { ...result, provider: provider.label }
       } catch (err: any) {
+        if (isAbort(err)) throw new Error('cancelled')
+
         const status = err?.status
         if (status === 401 || status === 403 || status === 429 || (status >= 500 && status < 600)) {
           provider.cooldownUntil = Date.now() + 60_000
@@ -248,10 +270,10 @@ export class ProviderPool {
       }
     }
 
-    throw new Error(`All providers failed.\n${failures.map((f) => `  - ${f}`).join('\n')}`)
+    throw new Error(`All providers failed.\n${failures.map((line) => `  - ${line}`).join('\n')}`)
   }
 
-  private async call(provider: Provider, options: GenerateOptions): Promise<string> {
+  private async call(provider: Provider, options: GenerateOptions): Promise<{ text: string; usage?: Usage }> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...provider.headers,
@@ -264,11 +286,12 @@ export class ProviderPool {
       body: JSON.stringify({
         model: provider.model,
         messages: options.messages,
-        temperature: options.temperature ?? 0.3,
+        temperature: options.temperature ?? 0.2,
         max_tokens: options.maxTokens ?? 4096,
         stream: Boolean(options.onChunk),
+        ...(options.onChunk ? { stream_options: { include_usage: true } } : {}),
       }),
-      signal: AbortSignal.timeout(180_000),
+      signal: linkSignals(options.signal, 180_000),
     })
 
     if (!response.ok) {
@@ -280,13 +303,14 @@ export class ProviderPool {
 
     if (!options.onChunk || !response.body) {
       const json = (await response.json()) as any
-      const content: string = json.choices?.[0]?.message?.content ?? ''
-      if (options.onChunk && content) options.onChunk(content)
-      return content
+      const text: string = json.choices?.[0]?.message?.content ?? ''
+      if (options.onChunk && text) options.onChunk(text)
+      return { text, usage: readUsage(json.usage) }
     }
 
-    let output = ''
+    let text = ''
     let reasoning = ''
+    let usage: Usage | undefined
     const reader = response.body.getReader()
     const decoder = new TextDecoder('utf-8')
     let buffer = ''
@@ -307,6 +331,8 @@ export class ProviderPool {
 
         try {
           const json = JSON.parse(payload)
+          usage = readUsage(json.usage) ?? usage
+
           const delta: string = json.choices?.[0]?.delta?.content ?? ''
           const thought: string = json.choices?.[0]?.delta?.reasoning_content ?? ''
           if (thought) {
@@ -314,20 +340,20 @@ export class ProviderPool {
             options.onThinking?.(thought)
           }
           if (delta) {
-            output += delta
+            text += delta
             options.onChunk(delta)
           }
         } catch {
-          // Ignore keep-alive lines and partial JSON.
+          // Keep-alive lines and partial JSON.
         }
       }
     }
 
-    return output || reasoning
+    return { text: text || reasoning, usage }
   }
 }
 
-function explainError(err: any): string {
+export function explainError(err: any): string {
   const status = err?.status
   if (status === 401 || status === 403) return 'API key rejected'
   if (status === 404) return 'model or endpoint not found'
@@ -336,4 +362,21 @@ function explainError(err: any): string {
   if (err?.code === 'ECONNREFUSED') return 'connection refused, is the server running?'
   if (err?.name === 'TimeoutError') return 'request timed out'
   return err?.message || 'unknown error'
+}
+
+function readUsage(raw: any): Usage | undefined {
+  if (!raw) return undefined
+  return {
+    promptTokens: raw.prompt_tokens ?? raw.promptTokens,
+    completionTokens: raw.completion_tokens ?? raw.completionTokens,
+  }
+}
+
+function isAbort(err: any): boolean {
+  return err?.name === 'AbortError' || err?.name === 'TimeoutError'
+}
+
+function linkSignals(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
 }

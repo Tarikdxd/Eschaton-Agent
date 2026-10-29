@@ -1,18 +1,19 @@
 {
   "name": "eschaton-code",
-  "version": "2.1.1",
-  "description": "Terminal coding agent that works with your own API key or a local DeepSeek model",
+  "version": "3.0.0",
+  "description": "A light browser IDE with a coding agent that edits your files",
   "type": "module",
   "bin": {
     "eschaton": "dist/eschaton.js"
   },
   "files": [
     "dist",
+    "docs",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "dev": "bun src/cli.ts",
+    "dev": "bun run build && bun src/cli.ts",
     "build": "node scripts/build.mjs",
     "test": "bun test ./tests",
     "typecheck": "tsc --noEmit",
@@ -24,7 +25,10 @@
   "devDependencies": {
     "@types/bun": "^1.4.4",
     "@types/node": "^22.9.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "esbuild": "^0.25.0",
+    "monaco-editor": "^0.57.0",
     "typescript": "^5.9.0"
   },
   "keywords": [

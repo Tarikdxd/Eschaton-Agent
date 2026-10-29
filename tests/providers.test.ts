@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+﻿import { describe, expect, test } from 'bun:test'
 import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -45,7 +45,7 @@ describe('provider pool', () => {
 
     const pool = new ProviderPool([provider])
     let streamed = ''
-    const output = await pool.generate({
+    const { text: output } = await pool.generate({
       messages: [{ role: 'user', content: 'hi' }],
       onChunk: (chunk) => (streamed += chunk),
     })
@@ -72,7 +72,7 @@ describe('provider pool', () => {
       { ...base, id: 'b', label: 'Second' },
     ])
 
-    const output = await pool.generate({ messages: [{ role: 'user', content: 'x' }] })
+    const { text: output } = await pool.generate({ messages: [{ role: 'user', content: 'x' }] })
     server.close()
 
     expect(output).toBe('second')
@@ -146,7 +146,7 @@ describe('coding agent', () => {
     const tools: string[] = []
     const agent = new CodingAgent(pool, dir)
 
-    const reply = await agent.run('create hello.txt', {
+    const { text: reply } = await agent.run('create hello.txt', {
       onToolStart: (call) => tools.push(call.tool),
       onToolEnd: (result) => tools.push(result.isError ? 'error' : 'ok'),
     })
@@ -161,3 +161,4 @@ describe('coding agent', () => {
     expect(written).toBe('written\n')
   })
 })
+

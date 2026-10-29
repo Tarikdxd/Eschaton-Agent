@@ -10,28 +10,32 @@ bun install
 
 ## Checks
 
-Run these before opening a pull request:
-
 ```bash
 bun test
 bun run typecheck
 bun run build
 ```
 
-## Code layout
+## Layout
 
-- `src/llm/providers.ts` builds the provider list from the environment, discovers local servers
-  and streams responses. Add new hosted providers here.
-- `src/agent/coding-agent.ts` holds the system prompt, the ReAct loop and the tool
-  implementations.
-- `src/ui/tui.ts` is the readline interface and the slash commands.
-- `src/cli.ts` parses arguments and decides between `setup`, `login` and an interactive session.
+- `src/cli.ts` parses commands and decides between the IDE, the terminal interface and the
+  small utilities (`login`, `doctor`, `setup`).
+- `src/ide/server.ts` is the local HTTP server: static files, workspace API, agent streaming and
+  the approval handshake.
+- `src/ide/web/` is the browser UI, written in TypeScript against Monaco and xterm. `app.ts` is
+  bundled with esbuild, Monaco is copied from `node_modules` at build time.
+- `src/llm/providers.ts` builds the provider list, discovers local servers and streams responses.
+- `src/agent/coding-agent.ts` holds the system prompt, the ReAct loop and the tools.
+- `src/session.ts` stores conversations under `~/.eschaton/sessions`.
 
-The project uses TypeScript with `strict` enabled, ES modules and no runtime dependencies.
-Build output goes to `dist/` and is committed so that the published package and a git install
-both contain a working binary.
+## Conventions
+
+- TypeScript with `strict` enabled, ES modules, no runtime dependencies.
+- The server binds to `127.0.0.1` and every file path is resolved through `safePath`; do not add
+  an endpoint that reads a path without it.
+- Tool calls that write files or run commands must keep going through the approval flow.
+- Keep `dist/` in sync by running `bun run build` before committing changes to `src/`.
 
 ## Pull requests
 
-Keep each pull request focused. Describe what changed and why, and include the command you used
-to check it.
+Keep each change focused. Describe what changed and which command you used to check it.
