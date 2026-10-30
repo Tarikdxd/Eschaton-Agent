@@ -1,0 +1,92 @@
+{
+  "name": "eschaton-agent",
+  "version": "1.0.0",
+  "description": "Yetkili sızma testi ve hata ödülü çalışmaları için insan denetimli terminal ajanı; aynı zamanda kod da yazar.",
+  "type": "module",
+  "bin": {
+    "eschaton": "./dist/cli.js",
+    "eschaton-browser-mcp": "./dist/browser-mcp.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "bun src/cli/index.ts",
+    "dev:burp": "bun src/cli/index.ts --burp",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:opentui": "bun test src/ui-opentui",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src",
+    "lint:fix": "biome check --write src",
+    "ci": "bun run typecheck && bun run lint && bun run test && bun run test:opentui && bun run build"
+  },
+  "keywords": [
+    "pentest",
+    "bug-bounty",
+    "security",
+    "cli",
+    "agent",
+    "llm",
+    "ollama",
+    "mcp",
+    "offensive-security",
+    "red-team",
+    "opentui",
+    "eschaton",
+    "coding-agent",
+    "turkish"
+  ],
+  "license": "Apache-2.0",
+  "author": "Tarık Tozlu (@Tarikdxd)",
+  "homepage": "https://github.com/Tarikdxd/Eschaton-Agent",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tarikdxd/Eschaton-Agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Tarikdxd/Eschaton-Agent/issues"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "bun@1.3.14",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@opentui/core": "^0.5.1",
+    "@opentui/react": "^0.5.1",
+    "chalk": "^5.6.2",
+    "cli-highlight": "^2.1.11",
+    "execa": "^9.5.1",
+    "fast-glob": "^3.3.2",
+    "gray-matter": "^4.0.3",
+    "marked": "^14.1.4",
+    "marked-terminal": "^7.2.1",
+    "pino": "^9.5.0",
+    "react": "^19.2.0",
+    "undici": "^6.21.0",
+    "web-tree-sitter": "0.25.10",
+    "ws": "^8.18.0",
+    "write-file-atomic": "^6.0.0",
+    "zod": "^3.23.8",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/marked-terminal": "^6.1.1",
+    "@types/node": "^22.10.1",
+    "@types/react": "^19.2.0",
+    "@types/write-file-atomic": "^4.0.3",
+    "react-devtools-core": "^7.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

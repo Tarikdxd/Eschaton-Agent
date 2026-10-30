@@ -1,0 +1,55 @@
+# Dependencies & build
+node_modules/
+dist/
+/coverage/
+.tsbuildinfo
+.tsimp/
+.vitest/
+
+# Logs & env
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+
+# Editor / local tooling
+.idea/
+.vscode/
+*.swp
+.playwright-mcp/
+.grok/
+.omo/
+
+# Agent harness configs (may contain target hosts / secrets)
+.claude/
+.cursor/
+
+# Secrets / keys — never commit
+*.pem
+id_ed25519*
+id_rsa*
+force
+force.pub
+
+# Marketing site — developed separately
+/web/
+
+# Local engagement output (repo root only — not src/findings/ source code)
+/findings/
+/recon/
+/reports/
+/.eschaton/
+bughunter-report-*.md
+results_*.txt
+results_*.json
+**/cookies.txt
+__pycache__/
+*.pyc
+
+# One-off scripts / scratch (not part of the agent package)
+subdomain_enum.py
+subfinder.py
+*.tmp
+*.bak
+.DS_Store
