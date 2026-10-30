@@ -1,13 +1,14 @@
 {
   "name": "eschaton-code",
-  "version": "3.3.0",
-  "description": "Terminal coding agent with native tool calling, sessions and a free-tier model router",
+  "version": "3.4.0",
+  "description": "Terminal coding agent with skills, MCP, memory, hooks and free-tier model routing",
   "type": "module",
   "bin": {
     "eschaton": "dist/eschaton.js"
   },
   "files": [
     "dist",
+    "skills",
     "docs",
     "README.md",
     "LICENSE"

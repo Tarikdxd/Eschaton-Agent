@@ -8,6 +8,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import { formatEpisodes, recentEpisodes } from './memory-store.js'
 
 const CANDIDATES = ['ESCHATON.md', 'AGENTS.md', 'CLAUDE.md']
 const MAX_BYTES = 16_000
@@ -36,14 +37,17 @@ export function loadMemory(cwd: string): MemoryFile[] {
 
 export function memoryBlock(cwd: string): string {
   const files = loadMemory(cwd)
-  if (!files.length) return ''
+  const episodes = formatEpisodes(recentEpisodes(cwd))
+
+  if (!files.length && !episodes) return ''
 
   const parts = files.map(
     (file) => `--- ${file.source} ---\n${file.content.trim()}\n--- end of ${file.source} ---`,
   )
 
-  return `
+  const instructions = files.length
+    ? `\n\nProject instructions, written by the user. Follow them.\n${parts.join('\n\n')}`
+    : ''
 
-Project instructions, written by the user. Follow them.
-${parts.join('\n\n')}`
+  return `${instructions}${episodes}`
 }

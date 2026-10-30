@@ -9,7 +9,7 @@ import { loadPolicy } from './permissions.js'
 import { loadHooks } from './hooks.js'
 import { c } from './ui/theme.js'
 
-export const VERSION = '3.3.0'
+export const VERSION = '3.4.0'
 
 const DEFAULT_PORT = 4123
 

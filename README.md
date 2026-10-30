@@ -129,6 +129,42 @@ blocks the tool and the output is handed back to the model.
 
 The hook receives `ESCHATON_TOOL`, `ESCHATON_TOOL_ARGS` and `ESCHATON_CWD` in its environment.
 
+### Skills
+
+Skills are folders with a `SKILL.md` file: YAML frontmatter and instructions. The catalog is in
+the system prompt on every turn; the model calls `use_skill` to load the full text. Three skills
+are marked always-on and are included in full.
+
+Bundled in this repository under `skills/`:
+
+| Skill | What it adds |
+| --- | --- |
+| **superpowers** | 15 skills: brainstorming, plans, TDD, debugging, code review, worktrees, subagents |
+| **ponytail** | lazy-senior-dev mode: the smallest change that fully solves it |
+| **caveman** | terse replies without filler |
+| **graphify** | query a codebase as a knowledge graph when `graphify-out/` exists |
+| **karpathy-guidelines** | behavioural rules that cut common LLM coding mistakes |
+
+Add your own in `.eschaton/skills/<name>/SKILL.md` or `~/.eschaton/skills/`. Project skills
+override bundled ones with the same name. `/skills` lists what loaded.
+
+```markdown
+---
+name: release
+description: Use when cutting a release
+---
+Run the tests, bump the minor version, write the changelog entry.
+```
+
+See [skills/NOTICE.md](skills/NOTICE.md) for sources and licenses.
+
+### Memory
+
+After each run the agent records a one-line episode (prompt, files changed, outcome) in
+`~/.eschaton/memory`. The last few episodes for the current directory are added to the system
+prompt, so a new session starts with the context of the old ones. This is the behaviour of
+claude-mem, implemented locally without a background service.
+
 ### Task list and subagents
 
 For multi-step work the agent keeps a task list with `todo_write`; it is printed as a checklist

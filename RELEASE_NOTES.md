@@ -1,5 +1,17 @@
 # Release notes
 
+## 3.4.0
+
+- **Bundled skills.** superpowers (15 skills), ponytail, caveman, graphify and
+  karpathy-guidelines ship in `skills/`. The catalog goes into the system prompt on every turn;
+  always-on skills are included in full; `use_skill` loads the rest.
+- **Project and user skills.** `.eschaton/skills/<name>/SKILL.md` and `~/.eschaton/skills`
+  override bundled skills with the same name. `/skills` lists what loaded.
+- **Episodic memory.** Each run records prompt, changed files and outcome under
+  `~/.eschaton/memory`; recent entries for the directory are injected into the next session.
+  This mirrors claude-mem without a background service.
+- Skill frontmatter accepts YAML block descriptions.
+
 ## 3.3.0
 
 The pieces that make a terminal agent feel complete.

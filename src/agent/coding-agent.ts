@@ -20,6 +20,8 @@ import { memoryBlock } from '../memory.js'
 import { decide, type Policy } from '../permissions.js'
 import { runHook, type Hooks } from '../hooks.js'
 import { formatTodo, normalizeTodos, TODO_TOOL, type Todo } from '../todos.js'
+import { findSkill, loadSkills, skillPrompt, type Skill } from '../skills.js'
+import { recordEpisode } from '../memory-store.js'
 
 const execAsync = promisify(exec)
 
@@ -70,6 +72,21 @@ export interface AgentOptions {
   extraTools?: ToolSpec[]
   extraHandlers?: Record<string, (args: Record<string, any>) => Promise<string>>
   onTodos?: (todos: Todo[]) => void
+  /** Set to false for subagents so they do not write memory. */
+  recordMemory?: boolean
+}
+
+const SKILL_TOOL: ToolSpec = {
+  type: 'function',
+  function: {
+    name: 'use_skill',
+    description: 'Load the full instructions of a skill from the catalog before doing a task it applies to.',
+    parameters: {
+      type: 'object',
+      properties: { name: { type: 'string' } },
+      required: ['name'],
+    },
+  },
 }
 
 const TASK_TOOL: ToolSpec = {
@@ -186,7 +203,7 @@ const TOOLS: ToolSpec[] = [
   },
 ]
 
-function systemPrompt(cwd: string, mode: Mode): string {
+function systemPrompt(cwd: string, mode: Mode, skills: Skill[]): string {
   return `You are Eschaton Code, a coding agent working in the user's terminal.
 
 Working directory: ${cwd}
@@ -200,7 +217,7 @@ Rules:
 - Never invent file contents. If something is unknown, read it.
 - For multi-step work, call todo_write first and update it as you go.
 - Call task to hand a focused read-only investigation to a subagent.
-- Keep answers short. The terminal is not a document editor.${memoryBlock(cwd)}`
+- Keep answers short. The terminal is not a document editor.${memoryBlock(cwd)}${skillPrompt(skills)}`
 }
 
 interface UndoEntry {
@@ -218,15 +235,30 @@ export class CodingAgent {
   private tools: ToolSpec[]
   private handlers: Record<string, (args: Record<string, any>) => Promise<string>>
   private todos: Todo[] = []
+  private skills: Skill[]
+  private changedFiles: string[] = []
 
   constructor(pool: ProviderPool, cwd: string = process.cwd(), mode: Mode = 'Build', options: AgentOptions = {}) {
     this.pool = pool
     this.cwd = cwd
     this.mode = mode
     this.options = options
-    this.tools = [...TOOLS, TODO_TOOL, TASK_TOOL, ...(options.extraTools ?? [])]
+    this.skills = loadSkills(cwd)
+    this.tools = [
+      ...TOOLS,
+      TODO_TOOL,
+      TASK_TOOL,
+      ...(this.skills.length ? [SKILL_TOOL] : []),
+      ...(options.extraTools ?? []),
+    ]
     this.handlers = {
       ...(options.extraHandlers ?? {}),
+      use_skill: async (args) => {
+        const skill = findSkill(this.skills, String(args.name ?? ''))
+        return skill
+          ? skill.body
+          : `Unknown skill "${args.name}". Available: ${this.skills.map((item) => item.name).join(', ')}`
+      },
       todo_write: async (args) => {
         this.todos = normalizeTodos(args.todos)
         this.options.onTodos?.(this.todos)
@@ -239,6 +271,10 @@ export class CodingAgent {
 
   public getTodos(): Todo[] {
     return this.todos
+  }
+
+  public getSkills(): Skill[] {
+    return this.skills
   }
 
   public getMode(): Mode {
@@ -261,7 +297,7 @@ export class CodingAgent {
   }
 
   public resetHistory(): void {
-    this.history = [{ role: 'system', content: systemPrompt(this.cwd, this.mode) }]
+    this.history = [{ role: 'system', content: systemPrompt(this.cwd, this.mode, this.skills) }]
   }
 
   public async run(prompt: string, callbacks: AgentCallbacks = {}, options: RunOptions = {}): Promise<RunResult> {
@@ -334,8 +370,11 @@ export class CodingAgent {
         continue
       }
 
+      this.record(prompt, response.text)
       return { text: response.text, steps: step, usage, provider }
     }
+
+    this.record(prompt, `stopped after ${maxSteps} steps`)
 
     return {
       text: `Stopped after ${maxSteps} steps. Ask again to continue from here.`,
@@ -382,7 +421,7 @@ export class CodingAgent {
 
     const summary = response.text.trim()
     this.history = [
-      { role: 'system', content: systemPrompt(this.cwd, this.mode) },
+      { role: 'system', content: systemPrompt(this.cwd, this.mode, this.skills) },
       { role: 'user', content: `Session so far (summary):\n${summary}` },
       { role: 'assistant', content: 'Understood. Ready to continue.' },
     ]
@@ -444,6 +483,10 @@ export class CodingAgent {
     try {
       let output = await this.runTool(tool, args)
 
+      if ((tool === 'write_file' || tool === 'edit_file') && args.filePath && !this.changedFiles.includes(args.filePath)) {
+        this.changedFiles.push(String(args.filePath))
+      }
+
       if (this.options.hooks?.postTool) {
         const hook = await runHook(this.options.hooks.postTool, this.cwd, env)
         if (!hook.ok) output += `\n\npostTool hook failed:\n${hook.output}`
@@ -455,12 +498,26 @@ export class CodingAgent {
     }
   }
 
+  private record(prompt: string, outcome: string): void {
+    if (this.options.recordMemory === false) return
+
+    recordEpisode(this.cwd, {
+      at: new Date().toISOString(),
+      prompt: prompt.slice(0, 400),
+      files: [...this.changedFiles],
+      outcome: outcome.slice(0, 300),
+    })
+
+    this.changedFiles = []
+  }
+
   private async runSubagent(prompt: string, description: string): Promise<string> {
     if (!prompt.trim()) return 'task prompt is empty'
 
     const subagent = new CodingAgent(this.pool, this.cwd, 'Plan', {
       extraTools: this.options.extraTools,
       extraHandlers: this.options.extraHandlers,
+      recordMemory: false,
     })
 
     const result = await subagent.run(
@@ -660,3 +717,4 @@ function accumulate(target: Usage, next?: Usage): void {
   target.promptTokens = (target.promptTokens ?? 0) + (next.promptTokens ?? 0)
   target.completionTokens = (target.completionTokens ?? 0) + (next.completionTokens ?? 0)
 }
+

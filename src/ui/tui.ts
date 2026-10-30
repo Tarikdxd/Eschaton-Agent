@@ -409,6 +409,9 @@ export class TerminalUI {
       case 'permissions':
         this.showPermissions()
         return
+      case 'skills':
+        this.showSkills()
+        return
       default: {
         const custom = loadCommands(this.options.cwd).find((item) => item.name === command)
         if (custom) {
@@ -461,6 +464,21 @@ export class TerminalUI {
     }
 
     return blocks.length ? `${text}\n${blocks.join('\n')}` : text
+  }
+
+  private showSkills(): void {
+    const skills = this.agent.getSkills()
+    if (!skills.length) {
+      process.stdout.write(c.dim('  no skills found. add .eschaton/skills/<name>/SKILL.md') + '\n')
+      return
+    }
+
+    process.stdout.write('\n')
+    for (const skill of skills) {
+      const marker = skill.always ? c.green('*') : ' '
+      process.stdout.write(`  ${marker} ${c.cyan(skill.name.padEnd(28))} ${c.dim(skill.description.slice(0, 70))}\n`)
+    }
+    process.stdout.write('\n' + c.dim(`  ${skills.length} skills, * means always loaded`) + '\n')
   }
 
   private showPermissions(): void {
@@ -643,6 +661,7 @@ export class TerminalUI {
       ['/commands', 'list custom commands from .eschaton/commands'],
       ['/todos', 'show the task list'],
       ['/permissions', 'show allow and deny rules'],
+      ['/skills', 'list loaded skills'],
       ['/diff', 'show the working tree diff'],
       ['/undo', 'revert the last file the agent changed'],
       ['/compact', 'summarize the conversation to free context'],
