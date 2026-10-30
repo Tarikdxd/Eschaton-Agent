@@ -1,5 +1,12 @@
 # Release notes
 
+## 3.5.0
+
+- **mcptoon gateway.** When the `mcptoon` CLI is installed it is attached automatically as an MCP
+  server, so upstream tool schemas stay out of the context window and tools are discovered on
+  demand. Turn it off with `ESCHATON_MCPTOON=0`.
+- **mcptoon skill** bundled under `skills/mcptoon`, catalogued on every turn like the others.
+
 ## 3.4.0
 
 - **Bundled skills.** superpowers (15 skills), ponytail, caveman, graphify and

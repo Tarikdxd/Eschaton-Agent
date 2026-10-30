@@ -100,6 +100,11 @@ tools show up in the agent as `mcp__<server>__<tool>`.
 
 Startup prints `mcp  filesystem (12)` when a server connected.
 
+If [mcptoon](https://github.com/activeing123/mcptoon) is on your PATH, it is attached
+automatically as a gateway. mcptoon keeps upstream tool schemas out of the context window and
+exposes a small set of meta-tools (`mcptoon_manifest`, `mcptoon_call`, `mcptoon_retrieve`, ...)
+instead. Disable it with `ESCHATON_MCPTOON=0`.
+
 ### Permission rules
 
 `~/.eschaton/permissions.json` and `.eschaton/permissions.json` decide what runs without asking.
@@ -144,6 +149,7 @@ Bundled in this repository under `skills/`:
 | **caveman** | terse replies without filler |
 | **graphify** | query a codebase as a knowledge graph when `graphify-out/` exists |
 | **karpathy-guidelines** | behavioural rules that cut common LLM coding mistakes |
+| **mcptoon** | compress MCP tool discovery; schemas on demand, results reversible |
 
 Add your own in `.eschaton/skills/<name>/SKILL.md` or `~/.eschaton/skills/`. Project skills
 override bundled ones with the same name. `/skills` lists what loaded.

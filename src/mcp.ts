@@ -9,6 +9,7 @@
  * them to the agent as mcp__<server>__<tool>.
  */
 
+import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
@@ -149,7 +150,20 @@ function loadConfig(cwd: string): Record<string, McpServerConfig> {
     }
   }
 
+  // mcptoon is a local gateway: one compact endpoint for every MCP server the
+  // user configured elsewhere. Attach it automatically when it is installed.
+  if (process.env.ESCHATON_MCPTOON !== '0' && !servers.mcptoon && commandExists('mcptoon')) {
+    servers.mcptoon = { command: 'mcptoon', args: ['serve'] }
+  }
+
   return servers
+}
+
+function commandExists(command: string): boolean {
+  const paths = (process.env.PATH ?? '').split(path.delimiter)
+  const extensions = process.platform === 'win32' ? ['.exe', '.cmd', '.bat', ''] : ['']
+
+  return paths.some((dir) => extensions.some((extension) => fs.existsSync(path.join(dir, `${command}${extension}`))))
 }
 
 export async function connectMcp(cwd: string): Promise<McpBundle> {

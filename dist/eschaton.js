@@ -2502,6 +2502,7 @@ function openBrowser(url) {
 }
 
 // src/mcp.ts
+import fs12 from "node:fs";
 import os6 from "node:os";
 import path12 from "node:path";
 import { spawn as spawn2 } from "node:child_process";
@@ -2600,7 +2601,15 @@ function loadConfig(cwd) {
       };
     }
   }
+  if (process.env.ESCHATON_MCPTOON !== "0" && !servers.mcptoon && commandExists("mcptoon")) {
+    servers.mcptoon = { command: "mcptoon", args: ["serve"] };
+  }
   return servers;
+}
+function commandExists(command) {
+  const paths = (process.env.PATH ?? "").split(path12.delimiter);
+  const extensions = process.platform === "win32" ? [".exe", ".cmd", ".bat", ""] : [""];
+  return paths.some((dir) => extensions.some((extension) => fs12.existsSync(path12.join(dir, `${command}${extension}`))));
 }
 async function connectMcp(cwd) {
   const bundle = { tools: [], handlers: {}, servers: [], close: () => {
@@ -2652,7 +2661,7 @@ function sanitize(name) {
 }
 
 // src/cli.ts
-var VERSION = "3.4.0";
+var VERSION = "3.5.0";
 var DEFAULT_PORT = 4123;
 function setupText() {
   return `

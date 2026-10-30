@@ -58,7 +58,10 @@ describe('todos', () => {
 
 describe('mcp', () => {
   test('returns an empty bundle without configuration', async () => {
+    process.env.ESCHATON_MCPTOON = '0'
     const bundle = await connectMcp(dir)
+    delete process.env.ESCHATON_MCPTOON
+
     expect(bundle.tools).toHaveLength(0)
     expect(bundle.servers).toHaveLength(0)
     bundle.close()

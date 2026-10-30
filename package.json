@@ -1,6 +1,6 @@
 {
   "name": "eschaton-code",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "description": "Terminal coding agent with skills, MCP, memory, hooks and free-tier model routing",
   "type": "module",
   "bin": {
