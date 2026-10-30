@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 // src/cli.ts
-import process3 from "node:process";
+import process4 from "node:process";
 
 // src/config.ts
 import fs2 from "node:fs";
@@ -144,6 +144,13 @@ function providersFromSettings(settings = loadSettings(), env = process.env) {
   }
   return providers;
 }
+function applySettings(pool, settings) {
+  const hosted = providersFromSettings(settings);
+  for (const provider of hosted) pool.add(provider);
+  const target = settings.provider ? pool.useById(settings.provider) : void 0;
+  if (target && settings.model) target.model = settings.model;
+  return target ?? pool.active();
+}
 async function listLocalModels(baseUrl, timeoutMs = 800) {
   const modelsUrl = baseUrl.replace(/\/v1\/chat\/completions$/, "/v1/models");
   try {
@@ -177,6 +184,13 @@ var ProviderPool = class {
   useById(id) {
     const index = this.providers.findIndex((provider) => provider.id === id);
     return index >= 0 ? this.use(index) : void 0;
+  }
+  /** Adds a provider, replacing an existing entry with the same id. */
+  add(provider) {
+    const index = this.providers.findIndex((item) => item.id === provider.id);
+    if (index >= 0) this.providers[index] = provider;
+    else this.providers.push(provider);
+    return provider;
   }
   setModel(model) {
     const provider = this.active();
@@ -379,9 +393,238 @@ function linkSignals(signal, timeoutMs) {
   return signal ? AbortSignal.any([signal, timeout]) : timeout;
 }
 
-// src/ui/tui.ts
+// src/setup.ts
 import readline from "node:readline";
 import process2 from "node:process";
+
+// src/ui/theme.ts
+var enabled = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
+function paint(code) {
+  if (!enabled) return (text) => text;
+  return (text) => `\x1B[${code}m${text}\x1B[0m`;
+}
+var c = {
+  bold: paint("1"),
+  dim: paint("2"),
+  italic: paint("3"),
+  red: paint("31"),
+  green: paint("32"),
+  yellow: paint("33"),
+  blue: paint("34"),
+  magenta: paint("35"),
+  cyan: paint("36"),
+  gray: paint("90"),
+  white: paint("97")
+};
+var sym = {
+  prompt: "\u203A",
+  tool: "\u25B8",
+  ok: "\u2713",
+  fail: "\u2717",
+  dot: "\xB7",
+  arrow: "\u2192"
+};
+
+// src/setup.ts
+var CHOICES = [
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    detail: "free DeepSeek and Qwen models",
+    keyHint: "sk-or-...",
+    baseUrl: "https://openrouter.ai/api/v1/chat/completions",
+    model: "deepseek/deepseek-chat-v3-0324:free"
+  },
+  {
+    id: "gemini",
+    label: "Google",
+    detail: "Gemini Flash free tier",
+    keyHint: "AIza...",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    model: "gemini-2.5-flash"
+  },
+  {
+    id: "groq",
+    label: "Groq",
+    detail: "free Llama and DeepSeek distills",
+    keyHint: "gsk_...",
+    baseUrl: "https://api.groq.com/openai/v1/chat/completions",
+    model: "deepseek-r1-distill-llama-70b"
+  },
+  {
+    id: "deepseek",
+    label: "DeepSeek",
+    detail: "paid, own key",
+    keyHint: "sk-...",
+    baseUrl: "https://api.deepseek.com/chat/completions",
+    model: "deepseek-chat"
+  },
+  {
+    id: "ollama",
+    label: "Ollama",
+    detail: "local model, no key, no account",
+    model: "deepseek-r1:7b"
+  },
+  {
+    id: "custom",
+    label: "Custom endpoint",
+    detail: "any OpenAI-compatible API",
+    model: "deepseek-chat"
+  }
+];
+async function runSetup(prompter) {
+  const rl = prompter ? null : readline.createInterface({ input: process2.stdin, output: process2.stdout, terminal: true });
+  const ask = prompter?.ask ?? ((question) => new Promise((resolve) => rl.question(question, (answer) => resolve(answer.trim()))));
+  const askHidden = prompter?.askHidden ?? ((question) => hidden(rl, question));
+  try {
+    process2.stdout.write(`
+  ${c.bold("Set up a model")}
+
+`);
+    CHOICES.forEach((choice2, index) => {
+      process2.stdout.write(
+        `  ${c.cyan(String(index + 1))}. ${choice2.label.padEnd(18)} ${c.dim(choice2.detail)}
+`
+      );
+    });
+    process2.stdout.write(`
+  ${c.dim("q to cancel")}
+
+`);
+    const pick = (await ask(`  ${c.gray(sym.prompt)} `)).toLowerCase();
+    if (pick === "q" || pick === "") return null;
+    const choice = CHOICES[Number(pick) - 1];
+    if (!choice) {
+      process2.stdout.write(c.red("  unknown choice") + "\n");
+      return null;
+    }
+    if (choice.id === "ollama") {
+      process2.stdout.write(c.dim("  looking for a local Ollama...") + "\n");
+      const models = await listLocalModels("http://127.0.0.1:11434/v1/chat/completions", 1500);
+      if (!models.length) {
+        process2.stdout.write(
+          `
+  ${c.yellow("Ollama is not running.")} Start it and pull a model:
+
+    ollama pull deepseek-r1:7b
+
+  then run ${c.cyan("eschaton")} again.
+
+`
+        );
+        return null;
+      }
+      const preferred = models.find((name) => name.toLowerCase().includes("deepseek")) ?? models[0];
+      const model2 = await ask(`  model ${c.dim(`[${preferred}]`)} ${c.gray(sym.prompt)} `) || preferred;
+      const settings2 = { provider: "ollama", model: model2 };
+      saveSettings(settings2);
+      process2.stdout.write(`
+  ${c.green(sym.ok)} local model ${c.bold(model2)}
+
+`);
+      return { settings: settings2, local: true };
+    }
+    let baseUrl = choice.baseUrl;
+    if (choice.id === "custom") {
+      const url = await ask(`  base URL ${c.dim("(https://host/v1)")} ${c.gray(sym.prompt)} `);
+      if (!url) return null;
+      baseUrl = url.replace(/\/$/, "");
+    }
+    const key = await askHidden(`  ${choice.label} key ${c.dim(choice.keyHint ?? "")} ${c.gray(sym.prompt)} `);
+    if (!key) {
+      process2.stdout.write(c.dim("  cancelled") + "\n");
+      return null;
+    }
+    const model = await ask(`  model ${c.dim(`[${choice.model}]`)} ${c.gray(sym.prompt)} `) || choice.model;
+    process2.stdout.write(c.dim("  checking the key...") + "\n");
+    const ok = await verifyKey(baseUrl, key, model);
+    if (!ok) {
+      const again = (await ask(`  ${c.yellow("the key was rejected.")} save anyway? [y/N] `)).toLowerCase();
+      if (again !== "y") return null;
+    }
+    const settings = {
+      provider: choice.id,
+      apiKey: key,
+      model,
+      ...choice.id === "custom" ? { baseUrl } : {}
+    };
+    saveSettings(settings);
+    process2.stdout.write(
+      `
+  ${c.green(sym.ok)} ${choice.label} ${c.dim(sym.dot)} ${model}
+  ${c.dim(`saved to ${CONFIG_FILE}`)}
+
+`
+    );
+    return { settings, local: false };
+  } finally {
+    rl?.close();
+  }
+}
+async function verifyKey(baseUrl, apiKey, model) {
+  try {
+    const response = await fetch(baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: "ping" }],
+        max_tokens: 1,
+        stream: false
+      }),
+      signal: AbortSignal.timeout(2e4)
+    });
+    if (response.status === 401 || response.status === 403) return false;
+    return true;
+  } catch {
+    return true;
+  }
+}
+function hidden(rl, question) {
+  if (!process2.stdin.isTTY) {
+    return new Promise((resolve) => rl.question(question, (answer) => resolve(answer.trim())));
+  }
+  rl.pause();
+  process2.stdout.write(question);
+  return new Promise((resolve) => {
+    const stdin = process2.stdin;
+    const wasRaw = stdin.isRaw;
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+    let value = "";
+    const finish = (result) => {
+      stdin.setRawMode(wasRaw);
+      stdin.pause();
+      stdin.removeListener("data", onData);
+      rl.resume();
+      process2.stdout.write("\n");
+      resolve(result);
+    };
+    const onData = (chunk) => {
+      for (const char of chunk) {
+        if (char === "\r" || char === "\n") return finish(value);
+        if (char === "") return finish("");
+        if (char === "\x7F" || char === "\b") {
+          if (value) {
+            value = value.slice(0, -1);
+            process2.stdout.write("\b \b");
+          }
+          continue;
+        }
+        if (char >= " ") {
+          value += char;
+          process2.stdout.write("*");
+        }
+      }
+    };
+    stdin.on("data", onData);
+  });
+}
+
+// src/ui/tui.ts
+import readline2 from "node:readline";
+import process3 from "node:process";
 import fs10 from "node:fs";
 import path10 from "node:path";
 import { execSync } from "node:child_process";
@@ -1365,34 +1608,6 @@ function expandCommand(command, argument) {
 ${argument}`.trim();
 }
 
-// src/ui/theme.ts
-var enabled = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
-function paint(code) {
-  if (!enabled) return (text) => text;
-  return (text) => `\x1B[${code}m${text}\x1B[0m`;
-}
-var c = {
-  bold: paint("1"),
-  dim: paint("2"),
-  italic: paint("3"),
-  red: paint("31"),
-  green: paint("32"),
-  yellow: paint("33"),
-  blue: paint("34"),
-  magenta: paint("35"),
-  cyan: paint("36"),
-  gray: paint("90"),
-  white: paint("97")
-};
-var sym = {
-  prompt: "\u203A",
-  tool: "\u25B8",
-  ok: "\u2713",
-  fail: "\u2717",
-  dot: "\xB7",
-  arrow: "\u2192"
-};
-
 // src/ui/render.ts
 function renderDiff(before, after, maxLines = 16) {
   const oldLines = before.split("\n");
@@ -1491,9 +1706,9 @@ var TerminalUI = class {
   }
   async start() {
     this.printBanner();
-    this.rl = readline.createInterface({
-      input: process2.stdin,
-      output: process2.stdout,
+    this.rl = readline2.createInterface({
+      input: process3.stdin,
+      output: process3.stdout,
       terminal: true,
       historySize: 500
     });
@@ -1504,8 +1719,8 @@ var TerminalUI = class {
     });
     this.rl.on("SIGINT", () => this.onSigint());
     this.rl.on("close", () => {
-      process2.stdout.write("\n");
-      process2.exit(0);
+      process3.stdout.write("\n");
+      process3.exit(0);
     });
     await new Promise((resolve) => this.rl?.on("close", resolve));
   }
@@ -1524,7 +1739,7 @@ var TerminalUI = class {
       `  ${c.dim("/help for commands")} ${c.dim(sym.dot)} ${c.dim("Ctrl+C cancels")} ${c.dim(sym.dot)} ${c.dim("Ctrl+D exits")}`,
       ""
     );
-    process2.stdout.write(lines.join("\n"));
+    process3.stdout.write(lines.join("\n"));
   }
   modeLabel() {
     return c.magenta(this.agent.getMode());
@@ -1570,7 +1785,7 @@ var TerminalUI = class {
     this.abort = new AbortController();
     const started = Date.now();
     this.startSpinner();
-    process2.stdout.write("\n");
+    process3.stdout.write("\n");
     try {
       const result = await this.agent.run(
         input,
@@ -1580,7 +1795,7 @@ var TerminalUI = class {
               this.stopSpinner();
               this.streamed = true;
             }
-            process2.stdout.write(token);
+            process3.stdout.write(token);
           },
           onThinking: () => {
           },
@@ -1593,7 +1808,7 @@ var TerminalUI = class {
         }
       );
       this.stopSpinner();
-      if (this.streamed) process2.stdout.write("\n");
+      if (this.streamed) process3.stdout.write("\n");
       this.turns++;
       this.totalUsage.promptTokens = (this.totalUsage.promptTokens ?? 0) + (result.usage.promptTokens ?? 0);
       this.totalUsage.completionTokens = (this.totalUsage.completionTokens ?? 0) + (result.usage.completionTokens ?? 0);
@@ -1604,15 +1819,15 @@ var TerminalUI = class {
         tokens,
         result.provider
       ].filter(Boolean);
-      process2.stdout.write(c.dim(`  ${parts.join(` ${sym.dot} `)}`) + "\n\n");
+      process3.stdout.write(c.dim(`  ${parts.join(` ${sym.dot} `)}`) + "\n\n");
       this.persist();
     } catch (err) {
       this.stopSpinner();
-      if (this.streamed) process2.stdout.write("\n");
+      if (this.streamed) process3.stdout.write("\n");
       if (err?.message === "cancelled") {
-        process2.stdout.write(c.dim("  cancelled") + "\n\n");
+        process3.stdout.write(c.dim("  cancelled") + "\n\n");
       } else {
-        process2.stdout.write(`  ${c.red("error")} ${err?.message ?? err}
+        process3.stdout.write(`  ${c.red("error")} ${err?.message ?? err}
 
 `);
       }
@@ -1625,59 +1840,59 @@ var TerminalUI = class {
   onToolStart(call, preview) {
     this.stopSpinner();
     if (this.streamed) {
-      process2.stdout.write("\n");
+      process3.stdout.write("\n");
       this.streamed = false;
     }
-    process2.stdout.write(`
+    process3.stdout.write(`
   ${toolLine(call.name, detailOf(preview))}
 `);
     if (preview.needsApproval) {
-      process2.stdout.write(`${previewHeader(preview)}
+      process3.stdout.write(`${previewHeader(preview)}
 `);
       if ((preview.kind === "write" || preview.kind === "edit") && preview.after !== void 0) {
         const diff = renderDiff(preview.before ?? "", preview.after);
-        for (const line of diff) process2.stdout.write(`${line}
+        for (const line of diff) process3.stdout.write(`${line}
 `);
       }
     }
   }
   onToolEnd(result) {
     if (result.isError) {
-      process2.stdout.write(`  ${failLine(firstLine(result.output))}
+      process3.stdout.write(`  ${failLine(firstLine(result.output))}
 `);
       return;
     }
     if (result.preview?.kind === "command") {
       for (const line of truncateLines(result.output, 14)) {
-        process2.stdout.write(`  ${c.dim(line)}
+        process3.stdout.write(`  ${c.dim(line)}
 `);
       }
       return;
     }
     if (result.preview?.kind === "read") {
       const count = result.output.split("\n").length;
-      process2.stdout.write(`  ${okLine(`${count} line${count === 1 ? "" : "s"}`)}
+      process3.stdout.write(`  ${okLine(`${count} line${count === 1 ? "" : "s"}`)}
 `);
       return;
     }
     if (result.preview?.kind === "search") {
       const count = result.output === "No matches." ? 0 : result.output.split("\n").length;
-      process2.stdout.write(`  ${okLine(`${count} match${count === 1 ? "" : "es"}`)}
+      process3.stdout.write(`  ${okLine(`${count} match${count === 1 ? "" : "es"}`)}
 `);
       return;
     }
     if (result.preview?.kind === "list") {
-      process2.stdout.write(`  ${okLine("listed")}
+      process3.stdout.write(`  ${okLine("listed")}
 `);
       return;
     }
     if (result.preview?.kind === "tool") {
       if (result.tool === "todo_write") return;
-      for (const line of truncateLines(result.output, 8)) process2.stdout.write(`  ${c.dim(line)}
+      for (const line of truncateLines(result.output, 8)) process3.stdout.write(`  ${c.dim(line)}
 `);
       return;
     }
-    process2.stdout.write(`  ${okLine("applied")}
+    process3.stdout.write(`  ${okLine("applied")}
 `);
   }
   async confirm(call, _preview) {
@@ -1688,7 +1903,7 @@ var TerminalUI = class {
       try {
         const rule = suggestRule(call.name, JSON.parse(call.arguments || "{}"));
         addRule(this.options.cwd, rule);
-        process2.stdout.write(c.dim(`  saved rule ${rule}
+        process3.stdout.write(c.dim(`  saved rule ${rule}
 `));
       } catch {
       }
@@ -1698,10 +1913,10 @@ var TerminalUI = class {
   }
   renderTodos(todos) {
     if (!todos.length) return;
-    process2.stdout.write("\n");
+    process3.stdout.write("\n");
     for (const todo of todos) {
       const box = todo.status === "done" ? c.green("[x]") : todo.status === "in_progress" ? c.yellow("[~]") : c.dim("[ ]");
-      process2.stdout.write(`  ${box} ${todo.text}
+      process3.stdout.write(`  ${box} ${todo.text}
 `);
     }
   }
@@ -1729,7 +1944,7 @@ var TerminalUI = class {
         return;
       case "clear":
         this.agent.resetHistory();
-        process2.stdout.write(c.dim("  history cleared") + "\n");
+        process3.stdout.write(c.dim("  history cleared") + "\n");
         return;
       case "mode":
         this.setMode(argument);
@@ -1742,7 +1957,7 @@ var TerminalUI = class {
         this.showProviders(argument);
         return;
       case "session":
-        process2.stdout.write(c.dim(`  session ${this.sessionId}`) + "\n");
+        process3.stdout.write(c.dim(`  session ${this.sessionId}`) + "\n");
         return;
       case "undo":
         this.undo();
@@ -1771,10 +1986,10 @@ var TerminalUI = class {
         this.listCommands();
         return;
       case "todos":
-        if (!this.agent.getTodos().length) process2.stdout.write(c.dim("  no tasks") + "\n");
+        if (!this.agent.getTodos().length) process3.stdout.write(c.dim("  no tasks") + "\n");
         else {
           this.renderTodos(this.agent.getTodos());
-          process2.stdout.write("\n");
+          process3.stdout.write("\n");
         }
         return;
       case "permissions":
@@ -1783,13 +1998,17 @@ var TerminalUI = class {
       case "skills":
         this.showSkills();
         return;
+      case "setup":
+      case "config":
+        await this.configure();
+        return;
       default: {
         const custom = loadCommands(this.options.cwd).find((item) => item.name === command);
         if (custom) {
           await this.runTask(expandCommand(custom, argument));
           return;
         }
-        process2.stdout.write(c.dim(`  unknown command /${command}, try /help`) + "\n");
+        process3.stdout.write(c.dim(`  unknown command /${command}, try /help`) + "\n");
       }
     }
   }
@@ -1802,11 +2021,11 @@ var TerminalUI = class {
         timeout: 6e4,
         maxBuffer: 4 * 1024 * 1024
       });
-      process2.stdout.write(output.trimEnd() + "\n");
+      process3.stdout.write(output.trimEnd() + "\n");
     } catch (err) {
-      if (err?.stdout) process2.stdout.write(String(err.stdout));
-      if (err?.stderr) process2.stdout.write(c.red(String(err.stderr)));
-      if (!err?.stdout && !err?.stderr) process2.stdout.write(c.red(String(err?.message ?? err)) + "\n");
+      if (err?.stdout) process3.stdout.write(String(err.stdout));
+      if (err?.stderr) process3.stdout.write(c.red(String(err.stderr)));
+      if (!err?.stdout && !err?.stderr) process3.stdout.write(c.red(String(err?.message ?? err)) + "\n");
     }
   }
   expandFileRefs(text) {
@@ -1832,52 +2051,76 @@ ${slice}
     return blocks.length ? `${text}
 ${blocks.join("\n")}` : text;
   }
+  async configure() {
+    this.busy = true;
+    try {
+      const result = await runSetup({
+        ask: (question) => this.ask(question),
+        askHidden: (question) => this.ask(`${question}${c.dim("(visible) ")}`)
+      });
+      if (!result) return;
+      const next = new ProviderPool(providersFromSettings(result.settings));
+      await next.detectLocal();
+      for (const provider of next.list()) this.pool.add(provider);
+      applySettings(this.pool, result.settings);
+      const active = this.pool.active();
+      process3.stdout.write(`  ${c.green(sym.ok)} using ${active?.label ?? "?"} ${c.dim(sym.dot)} ${active?.model ?? ""}
+`);
+    } catch (err) {
+      process3.stdout.write(`  ${c.red("error")} ${err?.message ?? err}
+`);
+    } finally {
+      this.busy = false;
+      this.setPrompt();
+      this.rl?.prompt();
+    }
+  }
   showSkills() {
     const skills = this.agent.getSkills();
     if (!skills.length) {
-      process2.stdout.write(c.dim("  no skills found. add .eschaton/skills/<name>/SKILL.md") + "\n");
+      process3.stdout.write(c.dim("  no skills found. add .eschaton/skills/<name>/SKILL.md") + "\n");
       return;
     }
-    process2.stdout.write("\n");
+    process3.stdout.write("\n");
     for (const skill of skills) {
       const marker = skill.always ? c.green("*") : " ";
-      process2.stdout.write(`  ${marker} ${c.cyan(skill.name.padEnd(28))} ${c.dim(skill.description.slice(0, 70))}
+      process3.stdout.write(`  ${marker} ${c.cyan(skill.name.padEnd(28))} ${c.dim(skill.description.slice(0, 70))}
 `);
     }
-    process2.stdout.write("\n" + c.dim(`  ${skills.length} skills, * means always loaded`) + "\n");
+    process3.stdout.write("\n" + c.dim(`  ${skills.length} skills, * means always loaded`) + "\n");
   }
   showPermissions() {
     const policy = loadPolicy(this.options.cwd);
     const file = `${this.options.cwd}/.eschaton/permissions.json`;
-    process2.stdout.write("\n");
-    process2.stdout.write(`  ${c.dim("allow")} ${policy.allow.length ? policy.allow.join(", ") : c.dim("none")}
+    process3.stdout.write("\n");
+    process3.stdout.write(`  ${c.dim("allow")} ${policy.allow.length ? policy.allow.join(", ") : c.dim("none")}
 `);
-    process2.stdout.write(`  ${c.dim("deny ")} ${policy.deny.length ? policy.deny.join(", ") : c.dim("none")}
+    process3.stdout.write(`  ${c.dim("deny ")} ${policy.deny.length ? policy.deny.join(", ") : c.dim("none")}
 `);
-    process2.stdout.write(`  ${c.dim(`file  ${file}`)}
+    process3.stdout.write(`  ${c.dim(`file  ${file}`)}
 
 `);
   }
   listCommands() {
     const commands = loadCommands(this.options.cwd);
     if (!commands.length) {
-      process2.stdout.write(c.dim("  no custom commands. add .eschaton/commands/<name>.md") + "\n");
+      process3.stdout.write(c.dim("  no custom commands. add .eschaton/commands/<name>.md") + "\n");
       return;
     }
-    process2.stdout.write("\n");
+    process3.stdout.write("\n");
     for (const command of commands) {
-      process2.stdout.write(`  ${c.cyan(`/${command.name}`.padEnd(18))} ${c.dim(command.description)}
+      process3.stdout.write(`  ${c.cyan(`/${command.name}`.padEnd(18))} ${c.dim(command.description)}
 `);
     }
-    process2.stdout.write("\n");
+    process3.stdout.write("\n");
   }
   undo() {
     const entry = this.agent.undoLast();
     if (!entry) {
-      process2.stdout.write(c.dim("  nothing to undo") + "\n");
+      process3.stdout.write(c.dim("  nothing to undo") + "\n");
       return;
     }
-    process2.stdout.write(`  ${c.green(sym.ok)} restored ${c.bold(entry.path)}
+    process3.stdout.write(`  ${c.green(sym.ok)} restored ${c.bold(entry.path)}
 `);
   }
   showDiff() {
@@ -1885,57 +2128,57 @@ ${blocks.join("\n")}` : text;
       const stat = execSync("git diff --stat", { cwd: this.options.cwd, encoding: "utf-8" });
       const diff = execSync("git diff", { cwd: this.options.cwd, encoding: "utf-8", maxBuffer: 4 * 1024 * 1024 });
       if (!stat.trim()) {
-        process2.stdout.write(c.dim("  working tree is clean") + "\n");
+        process3.stdout.write(c.dim("  working tree is clean") + "\n");
         return;
       }
-      process2.stdout.write("\n" + c.dim(stat.trimEnd()) + "\n\n");
+      process3.stdout.write("\n" + c.dim(stat.trimEnd()) + "\n\n");
       for (const line of diff.split("\n").slice(0, 200)) {
         const painted = line.startsWith("+") ? c.green(line) : line.startsWith("-") ? c.red(line) : line.startsWith("@@") ? c.cyan(line) : c.dim(line);
-        process2.stdout.write(`  ${painted}
+        process3.stdout.write(`  ${painted}
 `);
       }
-      process2.stdout.write("\n");
+      process3.stdout.write("\n");
     } catch {
-      process2.stdout.write(c.dim("  not a git repository") + "\n");
+      process3.stdout.write(c.dim("  not a git repository") + "\n");
     }
   }
   showCost() {
     const prompt = this.totalUsage.promptTokens ?? 0;
     const completion = this.totalUsage.completionTokens ?? 0;
-    process2.stdout.write(
+    process3.stdout.write(
       c.dim(`  ${this.turns} turn${this.turns === 1 ? "" : "s"} ${sym.dot} ${prompt} in ${sym.dot} ${completion} out`) + "\n"
     );
   }
   showSessions() {
     const sessions = listSessions().filter((session) => session.cwd === this.options.cwd).slice(0, 10);
     if (!sessions.length) {
-      process2.stdout.write(c.dim("  no sessions for this directory") + "\n");
+      process3.stdout.write(c.dim("  no sessions for this directory") + "\n");
       return;
     }
-    process2.stdout.write("\n");
+    process3.stdout.write("\n");
     sessions.forEach((session, index) => {
       const messages = session.messages.filter((message) => message.role === "user").length;
       const current = session.id === this.sessionId ? c.cyan("*") : " ";
-      process2.stdout.write(
+      process3.stdout.write(
         `  ${current} ${index + 1}. ${new Date(session.createdAt).toLocaleString()} ${c.dim(`${messages} messages ${sym.dot} ${session.mode}`)}
 `
       );
     });
-    process2.stdout.write("\n" + c.dim("  /resume <number> to load one") + "\n");
+    process3.stdout.write("\n" + c.dim("  /resume <number> to load one") + "\n");
   }
   resume(argument) {
     const sessions = listSessions().filter((session2) => session2.cwd === this.options.cwd);
     const index = Number(argument) - 1;
     const session = sessions[index];
     if (!session) {
-      process2.stdout.write(c.dim("  usage: /resume <number from /sessions>") + "\n");
+      process3.stdout.write(c.dim("  usage: /resume <number from /sessions>") + "\n");
       return;
     }
     this.sessionId = session.id;
     this.agent.setMode(session.mode ?? "Build");
     this.agent.setHistory(session.messages);
     this.setPrompt();
-    process2.stdout.write(`  ${c.green(sym.ok)} resumed ${new Date(session.createdAt).toLocaleString()}
+    process3.stdout.write(`  ${c.green(sym.ok)} resumed ${new Date(session.createdAt).toLocaleString()}
 `);
   }
   async compact() {
@@ -1943,10 +2186,10 @@ ${blocks.join("\n")}` : text;
     try {
       const summary = await this.agent.compact();
       this.stopSpinner();
-      process2.stdout.write(c.dim(`  compacted to ${summary.length} characters`) + "\n");
+      process3.stdout.write(c.dim(`  compacted to ${summary.length} characters`) + "\n");
     } catch (err) {
       this.stopSpinner();
-      process2.stdout.write(`  ${c.red("error")} ${err?.message ?? err}
+      process3.stdout.write(`  ${c.red("error")} ${err?.message ?? err}
 `);
     }
     this.persist();
@@ -1959,30 +2202,30 @@ ${blocks.join("\n")}` : text;
     } else {
       const match2 = MODES.find((mode) => mode.toLowerCase() === wanted);
       if (!match2) {
-        process2.stdout.write(c.dim("  modes: build, plan, review, fast") + "\n");
+        process3.stdout.write(c.dim("  modes: build, plan, review, fast") + "\n");
         return;
       }
       this.agent.setMode(match2);
     }
     this.setPrompt();
-    process2.stdout.write(`  ${c.dim("mode")} ${this.modeLabel()}
+    process3.stdout.write(`  ${c.dim("mode")} ${this.modeLabel()}
 `);
   }
   setModel(argument) {
     if (!argument) {
-      process2.stdout.write(`  ${c.dim("model")} ${this.pool.active()?.model ?? "none"}
+      process3.stdout.write(`  ${c.dim("model")} ${this.pool.active()?.model ?? "none"}
 `);
       return;
     }
     this.pool.setModel(argument);
-    process2.stdout.write(`  ${c.dim("model")} ${argument}
+    process3.stdout.write(`  ${c.dim("model")} ${argument}
 `);
   }
   showProviders(argument) {
     if (argument) {
       const index = Number(argument);
       const provider = this.pool.use(index - 1);
-      process2.stdout.write(
+      process3.stdout.write(
         provider ? `  ${c.dim("using")} ${provider.label} ${sym.dot} ${provider.model}
 ` : c.dim("  invalid number") + "\n"
       );
@@ -1992,7 +2235,7 @@ ${blocks.join("\n")}` : text;
     for (const [index, provider] of this.pool.list().entries()) {
       const marker = provider === active ? c.cyan("*") : " ";
       const key = provider.apiKey ? provider.apiKey.slice(0, 6) + "\u2026" : "local";
-      process2.stdout.write(
+      process3.stdout.write(
         `  ${marker} ${index + 1}. ${provider.label} ${c.dim(sym.dot)} ${provider.model} ${c.dim(`(${key})`)}
 `
       );
@@ -2009,6 +2252,7 @@ ${blocks.join("\n")}` : text;
       ["/todos", "show the task list"],
       ["/permissions", "show allow and deny rules"],
       ["/skills", "list loaded skills"],
+      ["/setup", "change provider, key or model"],
       ["/diff", "show the working tree diff"],
       ["/undo", "revert the last file the agent changed"],
       ["/compact", "summarize the conversation to free context"],
@@ -2018,28 +2262,28 @@ ${blocks.join("\n")}` : text;
       ["/clear", "forget the conversation"],
       ["/exit", "leave"]
     ];
-    process2.stdout.write("\n");
+    process3.stdout.write("\n");
     for (const [command, description] of rows) {
-      process2.stdout.write(`  ${c.cyan(command.padEnd(16))} ${c.dim(description)}
+      process3.stdout.write(`  ${c.cyan(command.padEnd(16))} ${c.dim(description)}
 `);
     }
-    process2.stdout.write(
+    process3.stdout.write(
       "\n" + c.dim("  Anything else is sent to the agent. End a line with \\ to continue on the next line.") + "\n" + c.dim("  @path adds a file to the prompt, !command runs a shell command.") + "\n" + c.dim("  Tool calls that write files or run commands ask for confirmation first.") + "\n\n"
     );
   }
   startSpinner() {
-    if (!process2.stdout.isTTY) return;
+    if (!process3.stdout.isTTY) return;
     this.spinnerFrame = 0;
     this.spinner = setInterval(() => {
       const frame = SPINNER[this.spinnerFrame++ % SPINNER.length];
-      process2.stdout.write(`\r\x1B[2K  ${c.cyan(frame)} ${c.dim("thinking")}`);
+      process3.stdout.write(`\r\x1B[2K  ${c.cyan(frame)} ${c.dim("thinking")}`);
     }, 80);
   }
   stopSpinner() {
     if (!this.spinner) return;
     clearInterval(this.spinner);
     this.spinner = null;
-    process2.stdout.write("\r\x1B[2K");
+    process3.stdout.write("\r\x1B[2K");
   }
   onSigint() {
     if (this.busy) {
@@ -2053,7 +2297,7 @@ ${blocks.join("\n")}` : text;
     }
     this.lastSigint = now;
     this.pending = [];
-    process2.stdout.write("\n" + c.dim("  press Ctrl+C again to exit") + "\n");
+    process3.stdout.write("\n" + c.dim("  press Ctrl+C again to exit") + "\n");
     this.rl?.prompt();
   }
   persist() {
@@ -2661,7 +2905,7 @@ function sanitize(name) {
 }
 
 // src/cli.ts
-var VERSION = "3.5.0";
+var VERSION = "3.6.0";
 var DEFAULT_PORT = 4123;
 function setupText() {
   return `
@@ -2687,7 +2931,7 @@ Eschaton needs a model. Pick one:
 `;
 }
 function printHelp() {
-  process3.stdout.write(`
+  process4.stdout.write(`
 Usage: eschaton [command] [options]
 
 Commands:
@@ -2720,17 +2964,17 @@ function runLogin(args) {
   const [provider, key, model] = args;
   const allowed = ["deepseek", "openrouter", "groq", "custom"];
   if (!provider || !key) {
-    process3.stderr.write("usage: eschaton login <provider> <key> [model]\n");
+    process4.stderr.write("usage: eschaton login <provider> <key> [model]\n");
     return 1;
   }
   if (!allowed.includes(provider)) {
-    process3.stderr.write(`unknown provider "${provider}". expected one of: ${allowed.join(", ")}
+    process4.stderr.write(`unknown provider "${provider}". expected one of: ${allowed.join(", ")}
 `);
     return 1;
   }
   const settings = loadSettings();
   saveSettings({ ...settings, provider, apiKey: key, ...model ? { model } : {} });
-  process3.stdout.write(`saved ${provider} key to ${CONFIG_FILE}
+  process4.stdout.write(`saved ${provider} key to ${CONFIG_FILE}
 `);
   return 0;
 }
@@ -2742,7 +2986,7 @@ async function runDoctor() {
   const lines = [
     "",
     `  ${c.bold("Eschaton")} ${c.dim(VERSION)}`,
-    `  node        ${process3.version}`,
+    `  node        ${process4.version}`,
     `  config      ${CONFIG_FILE}`,
     `  saved key   ${maskKey(settings.apiKey)}${settings.provider ? c.dim(` (${settings.provider})`) : ""}`,
     ""
@@ -2764,7 +3008,7 @@ async function runDoctor() {
     lines.push(`    ${models.length ? c.green("*") : c.dim("\xB7")} ${kind.padEnd(10)} ${models[0] ?? c.dim("not running")}`);
   }
   lines.push("", `  ${c.dim(`active: ${local.length ? local[0].label : pool.active()?.label ?? "none"}`)}`, "");
-  process3.stdout.write(lines.join("\n"));
+  process4.stdout.write(lines.join("\n"));
   return 0;
 }
 async function runIde(argv) {
@@ -2773,19 +3017,21 @@ async function runIde(argv) {
   const mode = parseMode(flag(argv, "--mode"));
   const pool = new ProviderPool(providersFromSettings());
   if (model) pool.setModel(model);
+  await pool.detectLocal();
+  if (!pool.list().length) await runSetup();
   const ide = await startIde({
-    cwd: process3.cwd(),
+    cwd: process4.cwd(),
     port: Number.isFinite(port) ? port : DEFAULT_PORT,
     open: !argv.includes("--no-open"),
     model,
     mode
   });
   const active = pool.active();
-  process3.stdout.write(
+  process4.stdout.write(
     [
       "",
       `  ${c.bold("Eschaton")} ${c.dim(VERSION)}`,
-      `  ${c.dim("workspace")} ${process3.cwd()}`,
+      `  ${c.dim("workspace")} ${process4.cwd()}`,
       `  ${c.dim("url      ")} ${c.cyan(ide.url)}`,
       active ? `  ${c.dim("model    ")} ${active.label} ${c.dim("\xB7")} ${active.model}` : `  ${c.dim("model    ")} none`,
       "",
@@ -2794,7 +3040,7 @@ async function runIde(argv) {
     ].join("\n")
   );
   await new Promise((resolve) => {
-    process3.on("SIGINT", () => {
+    process4.on("SIGINT", () => {
       void ide.close().then(resolve);
     });
   });
@@ -2808,14 +3054,14 @@ async function runPrint(prompt, argv) {
   if (model) pool.setModel(model);
   await pool.detectLocal();
   if (!pool.list().length) {
-    process3.stdout.write(setupText());
+    process4.stdout.write(setupText());
     return 1;
   }
-  const mcp = await connectMcp(process3.cwd());
-  process3.on("exit", () => mcp.close());
-  const agent = new CodingAgent(pool, process3.cwd(), mode ?? "Build", {
-    policy: loadPolicy(process3.cwd()),
-    hooks: loadHooks(process3.cwd()),
+  const mcp = await connectMcp(process4.cwd());
+  process4.on("exit", () => mcp.close());
+  const agent = new CodingAgent(pool, process4.cwd(), mode ?? "Build", {
+    policy: loadPolicy(process4.cwd()),
+    hooks: loadHooks(process4.cwd()),
     extraTools: mcp.tools,
     extraHandlers: mcp.handlers
   });
@@ -2826,19 +3072,19 @@ async function runPrint(prompt, argv) {
       {
         onToken: (token) => {
           wrote = true;
-          process3.stdout.write(token);
+          process4.stdout.write(token);
         }
       },
       {
         approve: async () => yes
       }
     );
-    if (!wrote && result.text) process3.stdout.write(result.text);
-    process3.stdout.write("\n");
+    if (!wrote && result.text) process4.stdout.write(result.text);
+    process4.stdout.write("\n");
     return 0;
   } catch (err) {
-    if (wrote) process3.stdout.write("\n");
-    process3.stderr.write(`eschaton: ${err?.message ?? err}
+    if (wrote) process4.stdout.write("\n");
+    process4.stderr.write(`eschaton: ${err?.message ?? err}
 `);
     return 1;
   }
@@ -2847,28 +3093,39 @@ async function runChat(argv) {
   const model = flag(argv, "-m", "--model");
   const mode = parseMode(flag(argv, "--mode"));
   const resume = argv.includes("--continue") || argv.includes("-c");
-  const pool = new ProviderPool(providersFromSettings());
+  let settings = loadSettings();
+  let pool = new ProviderPool(providersFromSettings(settings));
   if (model) pool.setModel(model);
   await pool.detectLocal();
+  applySettings(pool, settings);
   if (!pool.list().length) {
-    process3.stdout.write(setupText());
+    const result = await runSetup();
+    if (result) {
+      settings = result.settings;
+      pool = new ProviderPool(providersFromSettings(settings));
+      await pool.detectLocal();
+      applySettings(pool, settings);
+    }
+  }
+  if (!pool.list().length) {
+    process4.stdout.write(setupText());
     return 1;
   }
-  const mcp = await connectMcp(process3.cwd());
-  process3.on("exit", () => mcp.close());
+  const mcp = await connectMcp(process4.cwd());
+  process4.on("exit", () => mcp.close());
   if (mcp.servers.length) {
     const summary = mcp.servers.map((server) => server.error ? `${server.name}: ${server.error}` : `${server.name} (${server.tools})`).join(" \xB7 ");
-    process3.stdout.write(`${c.dim("  mcp     ")} ${summary}
+    process4.stdout.write(`${c.dim("  mcp     ")} ${summary}
 `);
   }
   const ui = new TerminalUI(pool, {
     version: VERSION,
-    cwd: process3.cwd(),
+    cwd: process4.cwd(),
     mode,
     resume,
     agentOptions: {
-      policy: loadPolicy(process3.cwd()),
-      hooks: loadHooks(process3.cwd()),
+      policy: loadPolicy(process4.cwd()),
+      hooks: loadHooks(process4.cwd()),
       extraTools: mcp.tools,
       extraHandlers: mcp.handlers
     }
@@ -2881,14 +3138,14 @@ function parseMode(value) {
   return MODES.find((mode) => mode.toLowerCase() === value.toLowerCase());
 }
 async function main() {
-  const argv = process3.argv.slice(2);
+  const argv = process4.argv.slice(2);
   const command = argv[0];
   if (argv.includes("-h") || argv.includes("--help") || command === "help") {
     printHelp();
     return 0;
   }
   if (argv.includes("-v") || argv.includes("--version") || command === "version") {
-    process3.stdout.write(`eschaton ${VERSION}
+    process4.stdout.write(`eschaton ${VERSION}
 `);
     return 0;
   }
@@ -2899,13 +3156,13 @@ async function main() {
   if (printIndex >= 0) {
     const prompt = argv[printIndex + 1];
     if (!prompt) {
-      process3.stderr.write('usage: eschaton -p "<prompt>"\n');
+      process4.stderr.write('usage: eschaton -p "<prompt>"\n');
       return 1;
     }
     return runPrint(prompt, argv);
   }
   if (command === "setup") {
-    process3.stdout.write(setupText());
+    process4.stdout.write(setupText());
     return 0;
   }
   if (command === "ide" || argv.includes("--ide")) {
@@ -2914,11 +3171,11 @@ async function main() {
   return runChat(argv);
 }
 main().then((code) => {
-  if (code !== 0) process3.exitCode = code;
+  if (code !== 0) process4.exitCode = code;
 }).catch((err) => {
-  process3.stderr.write(`eschaton: ${err?.message ?? err}
+  process4.stderr.write(`eschaton: ${err?.message ?? err}
 `);
-  process3.exitCode = 1;
+  process4.exitCode = 1;
 });
 export {
   VERSION

@@ -201,6 +201,20 @@ export function providersFromSettings(
   return providers
 }
 
+/**
+ * Applies saved settings to a live pool without restarting: adds the configured
+ * hosted provider, selects it and sets the model. Local providers use whatever
+ * detectLocal discovered.
+ */
+export function applySettings(pool: ProviderPool, settings: Settings): Provider | undefined {
+  const hosted = providersFromSettings(settings)
+  for (const provider of hosted) pool.add(provider)
+
+  const target = settings.provider ? pool.useById(settings.provider) : undefined
+  if (target && settings.model) target.model = settings.model
+  return target ?? pool.active()
+}
+
 export async function listLocalModels(baseUrl: string, timeoutMs = 800): Promise<string[]> {
   const modelsUrl = baseUrl.replace(/\/v1\/chat\/completions$/, '/v1/models')
   try {
@@ -243,6 +257,14 @@ export class ProviderPool {
   public useById(id: string): Provider | undefined {
     const index = this.providers.findIndex((provider) => provider.id === id)
     return index >= 0 ? this.use(index) : undefined
+  }
+
+  /** Adds a provider, replacing an existing entry with the same id. */
+  public add(provider: Provider): Provider {
+    const index = this.providers.findIndex((item) => item.id === provider.id)
+    if (index >= 0) this.providers[index] = provider
+    else this.providers.push(provider)
+    return provider
   }
 
   public setModel(model: string): void {

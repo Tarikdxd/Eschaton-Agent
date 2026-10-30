@@ -13,7 +13,14 @@ import {
 } from '../agent/coding-agent.js'
 import { addRule, loadPolicy, suggestRule } from '../permissions.js'
 import type { Todo } from '../todos.js'
-import { ProviderPool, type ToolCall, type Usage } from '../llm/providers.js'
+import {
+  ProviderPool,
+  applySettings,
+  providersFromSettings,
+  type ToolCall,
+  type Usage,
+} from '../llm/providers.js'
+import { runSetup } from '../setup.js'
 import { latestSession, listSessions, loadSession, saveSession } from '../session.js'
 import { expandCommand, loadCommands } from '../commands.js'
 import { c, sym } from './theme.js'
@@ -412,6 +419,10 @@ export class TerminalUI {
       case 'skills':
         this.showSkills()
         return
+      case 'setup':
+      case 'config':
+        await this.configure()
+        return
       default: {
         const custom = loadCommands(this.options.cwd).find((item) => item.name === command)
         if (custom) {
@@ -464,6 +475,34 @@ export class TerminalUI {
     }
 
     return blocks.length ? `${text}\n${blocks.join('\n')}` : text
+  }
+
+  private async configure(): Promise<void> {
+    this.busy = true
+
+    try {
+      const result = await runSetup({
+        ask: (question) => this.ask(question),
+        askHidden: (question) => this.ask(`${question}${c.dim('(visible) ')}`),
+      })
+
+      if (!result) return
+
+      const next = new ProviderPool(providersFromSettings(result.settings))
+      await next.detectLocal()
+
+      for (const provider of next.list()) this.pool.add(provider)
+      applySettings(this.pool, result.settings)
+
+      const active = this.pool.active()
+      process.stdout.write(`  ${c.green(sym.ok)} using ${active?.label ?? '?'} ${c.dim(sym.dot)} ${active?.model ?? ''}\n`)
+    } catch (err: any) {
+      process.stdout.write(`  ${c.red('error')} ${err?.message ?? err}\n`)
+    } finally {
+      this.busy = false
+      this.setPrompt()
+      this.rl?.prompt()
+    }
   }
 
   private showSkills(): void {
@@ -662,6 +701,7 @@ export class TerminalUI {
       ['/todos', 'show the task list'],
       ['/permissions', 'show allow and deny rules'],
       ['/skills', 'list loaded skills'],
+      ['/setup', 'change provider, key or model'],
       ['/diff', 'show the working tree diff'],
       ['/undo', 'revert the last file the agent changed'],
       ['/compact', 'summarize the conversation to free context'],

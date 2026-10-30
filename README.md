@@ -15,30 +15,39 @@ npm install -g eschaton-code
 
 Requires Node.js 20 or newer.
 
-## Free setup
-
-Any one of these is enough. No card required for the free tiers.
-
-```bash
-eschaton login openrouter sk-or-...   # free DeepSeek / Qwen models
-eschaton login gemini AIza...         # free Gemini Flash tier
-eschaton login groq gsk_...           # free Llama / DeepSeek distills
-```
-
-Or run a model locally, no account at all:
-
-```bash
-ollama pull deepseek-r1:7b
-```
-
-Ollama and LM Studio are detected at startup. `eschaton doctor` shows what is wired up.
-
-## Usage
+## First run
 
 ```bash
 cd ~/my-project
 eschaton
 ```
+
+If no model is configured, the first screen is a setup wizard: pick a provider, paste a key, and
+the default model. No separate command, no config file to edit.
+
+```
+  Set up a model
+
+  1. OpenRouter         free DeepSeek and Qwen models
+  2. Google             Gemini Flash free tier
+  3. Groq               free Llama and DeepSeek distills
+  4. DeepSeek           paid, own key
+  5. Ollama             local model, no key, no account
+  6. Custom endpoint    any OpenAI-compatible API
+```
+
+The key is checked with a one-token request before it is saved. Change anything later from inside
+the session with `/setup`; it applies immediately, without a restart.
+
+For scripts, the same thing without prompts:
+
+```bash
+eschaton login openrouter sk-or-...
+eschaton login gemini AIza...
+eschaton login groq gsk_...
+```
+
+## Usage
 
 ```
 › add a test for the token refresh path
@@ -55,6 +64,7 @@ what changed.
 | `/mode [name]` | `build`, `plan`, `review` or `fast` |
 | `/model [name]` | Show or change the model |
 | `/providers [n]` | List providers or switch |
+| `/setup` | Change provider, key or model |
 | `/init` | Write an `AGENTS.md` for the project |
 | `/diff` | Show the working tree diff |
 | `/undo` | Revert the last file the agent changed |

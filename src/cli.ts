@@ -1,5 +1,6 @@
 ﻿import process from 'node:process'
-import { ProviderPool, providersFromSettings, listLocalModels, LOCAL_KINDS } from './llm/providers.js'
+import { ProviderPool, providersFromSettings, applySettings, listLocalModels, LOCAL_KINDS } from './llm/providers.js'
+import { runSetup } from './setup.js'
 import { loadSettings, saveSettings, CONFIG_FILE, maskKey } from './config.js'
 import { TerminalUI } from './ui/tui.js'
 import { startIde } from './ide/server.js'
@@ -9,7 +10,7 @@ import { loadPolicy } from './permissions.js'
 import { loadHooks } from './hooks.js'
 import { c } from './ui/theme.js'
 
-export const VERSION = '3.5.0'
+export const VERSION = '3.6.0'
 
 const DEFAULT_PORT = 4123
 
@@ -134,6 +135,9 @@ async function runIde(argv: string[]): Promise<number> {
 
   const pool = new ProviderPool(providersFromSettings())
   if (model) pool.setModel(model)
+  await pool.detectLocal()
+
+  if (!pool.list().length) await runSetup()
 
   const ide = await startIde({
     cwd: process.cwd(),
@@ -220,9 +224,22 @@ async function runChat(argv: string[]): Promise<number> {
   const mode = parseMode(flag(argv, '--mode'))
   const resume = argv.includes('--continue') || argv.includes('-c')
 
-  const pool = new ProviderPool(providersFromSettings())
+  let settings = loadSettings()
+  let pool = new ProviderPool(providersFromSettings(settings))
   if (model) pool.setModel(model)
   await pool.detectLocal()
+  applySettings(pool, settings)
+
+  if (!pool.list().length) {
+    const result = await runSetup()
+
+    if (result) {
+      settings = result.settings
+      pool = new ProviderPool(providersFromSettings(settings))
+      await pool.detectLocal()
+      applySettings(pool, settings)
+    }
+  }
 
   if (!pool.list().length) {
     process.stdout.write(setupText())

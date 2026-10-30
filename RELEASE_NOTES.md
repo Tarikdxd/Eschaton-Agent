@@ -1,5 +1,15 @@
 # Release notes
 
+## 3.6.0
+
+- **First-run setup inside the agent.** `eschaton` now opens a wizard when no model is
+  configured: provider, key with hidden input, model, key check, saved to
+  `~/.eschaton/config.json`, then straight into the session.
+- **`/setup` (or `/config`) in a session.** Change provider, key or model without leaving or
+  restarting; the live pool and the active model are updated in place.
+- Key verification makes a one-token completion instead of trusting `/models`, which is public on
+  some providers.
+
 ## 3.5.0
 
 - **mcptoon gateway.** When the `mcptoon` CLI is installed it is attached automatically as an MCP
