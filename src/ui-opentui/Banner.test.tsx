@@ -65,7 +65,7 @@ describe('Banner', () => {
     expect(ok).not.toContain('tools ready');
 
     const bad = await renderFrame(<Banner data={{ ...base, toolSupport: 'no' }} width={80} />, 80);
-    expect(bad).toContain('NO TOOLS');
+    expect(bad).toContain('ARAÇ YOK');
   });
 
   it('does not surface endpoint or session status', async () => {

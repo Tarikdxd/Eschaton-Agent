@@ -236,7 +236,7 @@ async function main(): Promise<number> {
   // shutdowns, in-flight HTTP calls, and tool execs unwind cleanly.
   const rootCtl = new AbortController();
   const onSig = (s: NodeJS.Signals) => {
-    logger.warn('signal received, shutting down', { signal: s });
+    logger.warn('sinyal alındı, kapatılıyor', { signal: s });
     rootCtl.abort();
   };
   process.on('SIGINT', () => onSig('SIGINT'));
@@ -253,15 +253,15 @@ async function main(): Promise<number> {
     try {
       renameSync(badPath, backupPath);
       process.stderr.write(
-        `warning: config was invalid and has been reset to defaults: ${(err as Error).message}
-  • your previous config (including any saved API key) is backed up at ${backupPath}
-  • reconfigure your backend/key with /provider in the TUI
+        `uyarı: yapılandırma geçersizdi ve varsayılanlara sıfırlandı: ${(err as Error).message}
+  • önceki yapılandırmanız (kaydedilmiş API anahtarı dahil) şurada yedeklendi: ${backupPath}
+  • arka ucunuzu/anahtarınızı TUI'de /provider ile yeniden yapılandırın
 `,
       );
     } catch {
       process.stderr.write(
-        `warning: config was invalid and defaults are in use: ${(err as Error).message}
-  • reconfigure your backend/key with /provider in the TUI
+        `uyarı: yapılandırma geçersizdi, varsayılanlar kullanılıyor: ${(err as Error).message}
+  • arka ucunuzu/anahtarınızı TUI'de /provider ile yeniden yapılandırın
 `,
       );
     }
@@ -271,7 +271,7 @@ async function main(): Promise<number> {
     const b = flags.backend as config.Config['backend'];
     if (b !== '' && !(config.BACKENDS as readonly string[]).includes(b)) {
       process.stderr.write(
-        `Unknown backend "${flags.backend}". Supported: ${config.BACKENDS.join(', ')}\n`,
+        `Bilinmeyen arka uç "${flags.backend}". Desteklenenler: ${config.BACKENDS.join(', ')}\n`,
       );
       return 1;
     }
@@ -348,7 +348,7 @@ async function main(): Promise<number> {
   cfg.mcp_servers = cfg.mcp_servers.filter((s) => !BROWSER_MCP_NAMES.has(s.name));
   const sessionServers = sessionMcpServers(cfg.mcp_servers, flags.browser);
   if (flags.browser) {
-    logger.info('browser MCP enabled for this session', { source: '--browser' });
+    logger.info('browser MCP bu oturum için etkinleştirildi', { source: '--browser' });
   }
 
   // LLM client.
@@ -370,10 +370,10 @@ async function main(): Promise<number> {
   const envVar = envForBackend[cfg.backend] ?? preset?.envKeys[0];
   if (envVar && !cfg.api_key) {
     process.stderr.write(
-      `No API key for the '${cfg.backend}' backend.
-  • set it for this shell:  export ${envVar}=<your-key>
-  • or pass it once:        eschaton --api-key <your-key>
-  • or configure it in the TUI with /provider
+      `'${cfg.backend}' arka ucu için API anahtarı yok.
+  • bu kabuk için ayarlayın:  export ${envVar}=<anahtarınız>
+  • veya bir kez geçirin:     eschaton --api-key <anahtarınız>
+  • veya TUI'de /provider ile yapılandırın
 `,
     );
     return 1;
@@ -393,7 +393,7 @@ async function main(): Promise<number> {
         cfg = { ...cfg, backend: 'openai-compat' };
         await config.save(cfg).catch(() => undefined);
         process.stderr.write(
-          'ℹ base_url looks OpenAI-compatible only (/v1/models ok, /api/tags not) — switched backend to openai-compat.\n',
+          'ℹ base_url yalnızca OpenAI uyumlu görünüyor (/v1/models tamam, /api/tags değil) — arka uç openai-compat olarak değiştirildi.\n',
         );
       }
     } catch {
@@ -406,8 +406,8 @@ async function main(): Promise<number> {
     client = llmFactory.newFromConfig(cfg);
   } catch (err) {
     process.stderr.write(
-      `Failed to initialize the '${cfg.backend || 'ollama'}' backend: ${(err as Error).message}
-Run with --help for setup flags, or use /provider in the TUI to reconfigure.
+      `'${cfg.backend || 'ollama'}' arka ucu başlatılamadı: ${(err as Error).message}
+Kurulum bayrakları için --help ile çalıştırın veya TUI'de /provider ile yeniden yapılandırın.
 `,
     );
     return 1;
@@ -457,7 +457,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
   const prompter = new YoloPrompter(bridgedPerm, flags.yolo);
   if (flags.yolo) {
     process.stderr.write(
-      '⚠  YOLO mode active: every tool call will auto-approve. Authorized engagements / lab targets only.\n',
+      '⚠  YOLO modu etkin: her araç çağrısı otomatik onaylanacak. Yalnızca yetkili görevlerde / laboratuvar hedeflerinde kullanın.\n',
     );
   }
 
@@ -494,7 +494,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
       model: cfg.model,
       base_url: cfg.base_url,
     });
-    process.stderr.write(`debug session log: ${sessionDebug.path}\n`);
+    process.stderr.write(`oturum hata ayıklama günlüğü: ${sessionDebug.path}\n`);
   }
 
   // Coverage tracking: which (endpoint, param, vuln_class) tuples the
@@ -525,7 +525,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
   const memoryProvider = await memoryProviderFactory.newFromConfig(cfg);
   if (cfg.memory_provider === 'sqlite' && !memoryProvider) {
     process.stderr.write(
-      'warning: memory_provider "sqlite" requires Node 22.5+ (node:sqlite) — running with no external memory provider.\n',
+      'uyarı: memory_provider "sqlite" Node 22.5+ (node:sqlite) gerektirir — harici bellek sağlayıcısı olmadan çalışılıyor.\n',
     );
   }
 
@@ -583,7 +583,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
   tools.register(
     new LoadSkillTool(skills, async (skillName, objective, signal) => {
       const parent = agentRef.current;
-      if (!parent) return 'error: skill fork called before the agent was ready';
+      if (!parent) return 'hata: beceri çatalı ajan hazır olmadan çağrıldı';
       // Reuse delegate_task path: worker role + skill preload.
       const childTools = new ToolRegistry();
       for (const toolName of parent.tools.names()) {
@@ -619,9 +619,9 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
       const tally = Object.entries(result.toolTally)
         .map(([name, n]) => `${name}×${n}`)
         .join(', ');
-      const header = `[skill-fork/${skillName}: ${result.stepCount} tool call(s)${tally ? ` — ${tally}` : ''}]`;
-      const body = result.finalText || '(skill fork produced no final text)';
-      const errNote = result.error ? `\n\nnote: ${result.error}` : '';
+      const header = `[skill-fork/${skillName}: ${result.stepCount} araç çağrısı${tally ? ` — ${tally}` : ''}]`;
+      const body = result.finalText || '(skill fork son metin üretmedi)';
+      const errNote = result.error ? `\n\nnot: ${result.error}` : '';
       return `${header}\n\n${body}${errNote}`;
     }),
   );
@@ -650,7 +650,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
       const parent = agentRef.current;
       if (!parent) {
         return {
-          finalText: 'error: delegate_task called before the agent was ready',
+          finalText: 'hata: delegate_task ajan hazır olmadan çağrıldı',
           toolTally: {},
           stepCount: 0,
           role,
@@ -730,11 +730,11 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
     try {
       const result = await startBurpBridge(flags.burpPort);
       process.stderr.write(
-        `Eschaton Burp bridge listening at ${result.url}\nEschaton Burp bridge token: ${result.token}\nSet both values in the Burp plugin.\n`,
+        `Eschaton Burp köprüsü şu adreste dinliyor: ${result.url}\nEschaton Burp köprüsü token'ı: ${result.token}\nHer iki değeri Burp eklentisine girin.\n`,
       );
     } catch (err) {
       process.stderr.write(
-        `warning: --burp failed to start on :${flags.burpPort}: ${(err as Error).message}\n`,
+        `uyarı: --burp :${flags.burpPort} üzerinde başlatılamadı: ${(err as Error).message}\n`,
       );
     }
   }
@@ -788,7 +788,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
   if (flags.listTools) {
     for (const n of tools.names()) {
       const t = tools.get(n);
-      const gated = t?.requiresPermission() ? ' [permission required]' : '';
+      const gated = t?.requiresPermission() ? ' [izin gerekli]' : '';
       process.stdout.write(`- ${n}${gated}\n    ${t?.description() ?? ''}\n`);
     }
     await Promise.all(mcpSessions.map((s) => s.close()));
@@ -807,7 +807,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
       await Promise.all(mcpSessions.map((s) => s.close()));
       await closeBurpBridge();
       await memoryProvider?.close();
-      process.stderr.write('first-run setup cancelled — exiting.\n');
+      process.stderr.write('ilk kurulum iptal edildi — çıkılıyor.\n');
       return 0;
     }
     cfg.tooling_profile = picked;
@@ -815,7 +815,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
       await persistConfig(cfg);
     } catch (err) {
       process.stderr.write(
-        `warning: could not persist tooling_profile: ${(err as Error).message}\n`,
+        `uyarı: tooling_profile kalıcı olarak kaydedilemedi: ${(err as Error).message}\n`,
       );
     }
   }
@@ -852,7 +852,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
       agent.resumeSaved();
       resumeSummary = buildResumeSummary(sessionID, agent.formatMemory());
     } catch (err) {
-      process.stderr.write(`resume: ${(err as Error).message}\n`);
+      process.stderr.write(`sürdürme: ${(err as Error).message}\n`);
       return 1;
     }
   }
@@ -877,10 +877,10 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
         skills.setDisabledNames(cfg.disabled_skills);
         agent.rebuildFromSkills();
         const count = skills.listEnabled().length;
-        noticeHolder.publish?.(`skills: reloaded (${count} enabled)`);
-        logger.info('skills reloaded', { enabled: count, total: skills.list().length });
+        noticeHolder.publish?.(`beceriler: yeniden yüklendi (${count} etkin)`);
+        logger.info('beceriler yeniden yüklendi', { enabled: count, total: skills.list().length });
       } catch (err) {
-        logger.warn('skills reload failed', {
+        logger.warn('beceriler yeniden yüklenemedi', {
           err: err instanceof Error ? err.message : String(err),
         });
       }
@@ -918,10 +918,10 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
   // Banner data.
   const bannerData: BannerData = {
     provider: providerLabel(cfg.backend),
-    model: client.model() || cfg.model || '(none — set with /model)',
+    model: client.model() || cfg.model || '(yok — /model ile ayarlayın)',
     endpoint: cfg.base_url || defaultEndpoint(cfg.backend),
     state: localityFor(cfg.backend),
-    status: `Session ${sessionID.slice(0, 8)} — type /help to begin`,
+    status: `Oturum ${sessionID.slice(0, 8)} — başlamak için /help yazın`,
     cwd: prettyCwd(),
     toolSupport: 'probing',
   };
@@ -947,7 +947,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
     try {
       await runProbesInner(signal);
     } catch (err) {
-      logger.error('agent: probe failed', {
+      logger.error('agent: sonda başarısız oldu', {
         err: err instanceof Error ? err.message : String(err),
       });
     }
@@ -1002,12 +1002,12 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
                 cfg.auto_compact_threshold !== config.DEFAULT_AUTO_COMPACT_THRESHOLD;
               if (safe < threshold) {
                 agent.setAutoCompactThreshold(safe);
-                const msg = `ℹ auto-compact threshold lowered to ${safe} tokens to fit ollama num_ctx ${info.numCtx} (source: ${info.source}); prevents silent context truncation.`;
+                const msg = `ℹ bağlamın sessizce kesilmesini önlemek için otomatik sıkıştırma eşiği, ollama num_ctx ${info.numCtx} değerine sığacak şekilde ${safe} token'a düşürüldü (kaynak: ${info.source}).`;
                 process.stderr.write(`${msg}\n`);
                 noticeHolder.publish?.(msg);
               } else if (safe > threshold && !userConfigured) {
                 agent.setAutoCompactThreshold(safe);
-                const msg = `ℹ auto-compact threshold raised to ${safe} tokens to use ollama num_ctx ${info.numCtx} (source: ${info.source}); default 16k was compacting this window early.`;
+                const msg = `ℹ otomatik sıkıştırma eşiği, ollama num_ctx ${info.numCtx} penceresini kullanmak için ${safe} token'a yükseltildi (kaynak: ${info.source}); varsayılan 16k bu pencereyi erken sıkıştırıyordu.`;
                 process.stderr.write(`${msg}\n`);
                 noticeHolder.publish?.(msg);
               }
@@ -1016,7 +1016,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
               // and hallucination — is unavoidable until it's raised.
               if (info.numCtx < 4096) {
                 process.stderr.write(
-                  `⚠  ollama num_ctx is only ${info.numCtx} (source: ${info.source}). The system prompt + tools may not fit, so the model will lose context and hallucinate. Bump it: ollama show <m> --modelfile > m && echo "PARAMETER num_ctx 32768" >> m && ollama create <m>-32k -f m\n`,
+                  `⚠  ollama num_ctx yalnızca ${info.numCtx} (kaynak: ${info.source}). Sistem istemi + araçlar sığmayabilir; model bağlamı kaybeder ve halüsinasyon üretir. Yükseltin: ollama show <m> --modelfile > m && echo "PARAMETER num_ctx 32768" >> m && ollama create <m>-32k -f m\n`,
                 );
               }
             }
@@ -1096,7 +1096,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
           if (suggested === 'openai-compat') {
             cfg.backend = 'openai-compat';
             noticeHolder.publish?.(
-              'base_url is OpenAI-compatible only — using openai-compat instead of ollama',
+              'base_url yalnızca OpenAI uyumlu — ollama yerine openai-compat kullanılıyor',
             );
           }
         } catch {
@@ -1120,7 +1120,7 @@ Run with --help for setup flags, or use /provider in the TUI to reconfigure.
       // model's capabilities, not the old one's.
       bannerHolder.publish?.({
         provider: providerLabel(cfg.backend),
-        model: next.model() || cfg.model || '(none — set with /model)',
+        model: next.model() || cfg.model || '(yok — /model ile ayarlayın)',
         endpoint: cfg.base_url || defaultEndpoint(cfg.backend),
         state: localityFor(cfg.backend),
       });
@@ -1263,11 +1263,11 @@ function effectivePromptProfile(cfg: config.Config): PromptProfile {
 }
 
 function buildResumeSummary(sessionID: string, memory: string): string {
-  return [`Resumed session ${sessionID}`, '', 'Previous session recap:', '', memory].join('\n');
+  return [`${sessionID} oturumu sürdürüldü`, '', 'Önceki oturumun özeti:', '', memory].join('\n');
 }
 
 function buildExitResumeHint(sessionID: string): string {
-  return `Resume this session: eschaton --resume ${sessionID}`;
+  return `Bu oturumu sürdür: eschaton --resume ${sessionID}`;
 }
 
 function prettyCwd(): string {
@@ -1307,14 +1307,15 @@ async function confirmMCPServers(
   try {
     for (const s of pending) {
       process.stderr.write(
-        `\nMCP server "${s.name}" wants to run on every launch:\n  ${s.command} ${s.args.join(' ')}\n`,
+        `\nMCP sunucusu "${s.name}" her başlatmada çalışmak istiyor:\n  ${s.command} ${s.args.join(' ')}\n`,
       );
-      const answer = await rl.question('  Allow? [y/N] ');
-      if (answer.trim().toLowerCase().startsWith('y')) {
+      const answer = await rl.question('  İzin verilsin mi? [e/H] ');
+      const yes = answer.trim().toLowerCase();
+      if (yes === 'e' || yes === 'evet' || yes === 'y' || yes === 'yes') {
         approved.add(s.name);
         cfg.mcp_approved[s.name] = mcpServerFingerprint(s);
       } else {
-        process.stderr.write(`  Skipped "${s.name}" — not spawned this session.\n`);
+        process.stderr.write(`  "${s.name}" atlandı — bu oturumda başlatılmadı.\n`);
       }
     }
   } finally {
@@ -1390,32 +1391,32 @@ async function runFirstRunPickerOpenTui(): Promise<config.ToolingProfile | null>
 function printHelp(): void {
   process.stdout.write(`eschaton ${VERSION}
 
-Usage:
-  eschaton [flags]
+Kullanım:
+  eschaton [bayraklar]
 
-Flags:
+Bayraklar:
   --backend ollama|lmstudio|openai|openai-compat|kimi|groq|openrouter|deepseek|gemini|anthropic|naraya|dahl
   --model <id>
   --base-url <url>
-  --api-key <key>            visible to other local users via ps/procfs; prefer env var or /provider
-  --skills <dirs>            comma-separated extra skill directories
-  --resume <session-id>
-  --browser                  enable Browser MCP for this session only (not persisted)
-  --burp [port]              start local Burp/Eschaton bridge (default :9999)
-  --browser-ingest [port]    deprecated alias for --burp
-  --no-stream                disable streaming chat (fallback for backends
-                             whose SSE/ND-JSON path drops tool_calls)
-  --yolo                     YOLO mode: auto-approve non-sensitive tool calls
-                             (alias: --dangerously-skip-permissions)
+  --api-key <anahtar>        yerel diğer kullanıcılar ps/procfs ile görebilir; ortam değişkenini veya /provider'ı tercih edin
+  --skills <dizinler>        virgülle ayrılmış ek beceri dizinleri
+  --resume <oturum-id>
+  --browser                  Browser MCP'yi yalnızca bu oturum için etkinleştir (kalıcı değil)
+  --burp [port]              yerel Burp/Eschaton köprüsünü başlat (varsayılan :9999)
+  --browser-ingest [port]    --burp için kullanımdan kaldırılmış takma ad
+  --no-stream                akışlı sohbeti kapat (SSE/ND-JSON yolu tool_calls
+                             düşüren arka uçlar için geri dönüş)
+  --yolo                     YOLO modu: hassas olmayan araç çağrılarını otomatik onayla
+                             (takma ad: --dangerously-skip-permissions)
   --list-skills / --list-tools
-  --log <path>
-  --debug-session           write a complete JSONL session debug log
-  --debug-session-path <p>  custom path for --debug-session
+  --log <yol>
+  --debug-session            eksiksiz bir JSONL oturum hata ayıklama günlüğü yaz
+  --debug-session-path <yol> --debug-session için özel yol
   --version / --help
 
-API keys (hosted backends) — set via flag, /provider in the TUI, or env var:
+API anahtarları (barındırılan arka uçlar) — bayrakla, TUI'de /provider ile veya ortam değişkeniyle ayarlanır:
   openai      OPENAI_API_KEY
-  kimi        MOONSHOT_API_KEY (or KIMI_API_KEY)
+  kimi        MOONSHOT_API_KEY (veya KIMI_API_KEY)
   groq        GROQ_API_KEY
   openrouter  OPENROUTER_API_KEY
   deepseek    DEEPSEEK_API_KEY
@@ -1423,25 +1424,25 @@ API keys (hosted backends) — set via flag, /provider in the TUI, or env var:
   anthropic   ANTHROPIC_API_KEY
   naraya      NARAYA_API_KEY
   dahl        DAHL_API_KEY
-  (ollama / lmstudio run locally and need no key)
+  (ollama / lmstudio yerel çalışır ve anahtar gerektirmez)
 
-Backends: ollama · lmstudio · openai · openai-compat · kimi · groq ·
+Arka uçlar: ollama · lmstudio · openai · openai-compat · kimi · groq ·
   openrouter · deepseek · gemini · anthropic · naraya · dahl
-  + OpenCode presets: xai · mistral · cerebras · togetherai · deepinfra ·
+  + OpenCode ön ayarları: xai · mistral · cerebras · togetherai · deepinfra ·
   fireworks · baseten · nvidia · perplexity · cohere · alibaba · venice ·
   zenmux · kilo · llmgateway · opencode
-Custom gateways: /provider → "Custom OpenAI scheme" or "Custom Anthropic scheme"
-  (any base URL + key + model id). /model <id> accepts any custom model id.
+Özel ağ geçitleri: /provider → "Özel OpenAI düzeni" veya "Özel Anthropic düzeni"
+  (herhangi bir temel URL + anahtar + model kimliği). /model <id> herhangi bir özel model kimliğini kabul eder.
 
-In the TUI: Enter send · Esc cancel turn · Ctrl-C quit
-  Scroll: PgUp/PgDn/Home/End · mouse wheel
-Slash: /help /plan /clear /reset /exit /target /maxsteps /thinking /update
+TUI'de: Enter gönder · Esc turu iptal et · Ctrl-C çık
+  Kaydırma: PgUp/PgDn/Home/End · fare tekerleği
+Komutlar: /help /plan /clear /reset /exit /target /maxsteps /thinking /update
 `);
 }
 
 main()
   .then((code) => process.exit(code))
   .catch((err: unknown) => {
-    process.stderr.write(`fatal: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.stderr.write(`ölümcül hata: ${err instanceof Error ? err.message : String(err)}\n`);
     process.exit(1);
   });

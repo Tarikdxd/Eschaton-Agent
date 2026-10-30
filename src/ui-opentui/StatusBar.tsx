@@ -14,12 +14,22 @@ import {
   formatElapsed,
   phaseLabel,
 } from '../ui/StatusBar.js';
+import type { TranscriptFilter } from '../ui/state.js';
 import { theme } from '../ui/theme.js';
 
 export type { StatusProps } from '../ui/StatusBar.js';
 
 const DOTS_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const DOTS_INTERVAL_MS = 80;
+
+/** Display labels for the active transcript filter chip. */
+const FILTER_LABELS: Record<TranscriptFilter, string> = {
+  all: 'tümü',
+  current: 'geçerli',
+  compact: 'kompakt',
+  findings: 'bulgular',
+  errors: 'hatalar',
+};
 
 function useDotsSpinner(active: boolean): string {
   const [frame, setFrame] = useState(0);
@@ -93,7 +103,7 @@ function IdleLine(props: OpenTuiStatusProps) {
   // Keep the bar short. Only add fields that change what the user should do.
   const segs: Seg[] = [
     {
-      text: props.apiReady ? 'Ready' : 'Offline',
+      text: props.apiReady ? 'Hazır' : 'Çevrimdışı',
       color: props.apiReady ? theme.success : theme.error,
       bold: true,
       priority: 0,
@@ -111,16 +121,16 @@ function IdleLine(props: OpenTuiStatusProps) {
   }
   // Warnings only — hide "tools ✓" noise.
   if (props.toolSupport === 'no') {
-    segs.push({ text: ' · No tools', color: theme.error, priority: 1 });
+    segs.push({ text: ' · Araç yok', color: theme.error, priority: 1 });
   } else if (props.toolSupport === 'probing') {
-    segs.push({ text: ' · Checking tools…', color: theme.warning, priority: 1 });
+    segs.push({ text: ' · Araçlar denetleniyor…', color: theme.warning, priority: 1 });
   }
   if (props.expandHint) {
-    segs.push({ text: ' · Expand available', color: theme.focus, priority: 2 });
+    segs.push({ text: ' · Genişlet', color: theme.focus, priority: 2 });
   }
   if (props.transcriptFilter !== 'all') {
     segs.push({
-      text: ` · ${props.transcriptFilter}`,
+      text: ` · ${FILTER_LABELS[props.transcriptFilter]}`,
       color: theme.focus,
       priority: 2,
     });

@@ -69,18 +69,18 @@ export function compactModelName(name: string): string {
 export function phaseLabel(phase: UiPhase): string {
   switch (phase) {
     case 'planning':
-      return 'Thinking';
+      return 'Düşünüyor';
     case 'running-tool':
-      return 'Running tool';
+      return 'Araç çalışıyor';
     case 'answering':
-      return 'Writing';
+      return 'Yazıyor';
     case 'waiting-approval':
-      return 'Needs approval';
+      return 'Onay gerekiyor';
     case 'waiting-user':
-      return 'Waiting for you';
+      return 'Seni bekliyor';
     case 'skills':
-      return 'Skills';
+      return 'Beceriler';
     case 'idle':
-      return 'Ready';
+      return 'Hazır';
   }
 }

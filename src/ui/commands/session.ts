@@ -23,8 +23,8 @@ export function handleYolo(ctx: SlashContext): void {
     entry: {
       kind: 'system',
       text: next
-        ? 'YOLO on — every tool call will auto-approve. Authorized / lab targets only. (Use /mode auto-safe for read-only auto-approve.)'
-        : 'YOLO off — tool calls will prompt again. (/mode ask|auto-safe|yolo)',
+        ? 'YOLO açık — her araç çağrısı otomatik onaylanacak. Yalnızca yetkili / laboratuvar hedefleri. (Salt okunur otomatik onay için /mode auto-safe kullanın.)'
+        : 'YOLO kapalı — araç çağrıları yeniden soracak. (/mode ask|auto-safe|yolo)',
     },
   });
 }
@@ -39,7 +39,7 @@ export function handleMode(ctx: SlashContext): void {
       type: 'append',
       entry: {
         kind: 'system',
-        text: `mode: work=${plan} · permissions=${perm} (set with /mode ask|auto-safe|yolo|plan|act)`,
+        text: `mod: çalışma=${plan} · izinler=${perm} (/mode ask|auto-safe|yolo|plan|act ile ayarlanır)`,
       },
     });
     return;
@@ -50,7 +50,7 @@ export function handleMode(ctx: SlashContext): void {
       type: 'append',
       entry: {
         kind: 'system',
-        text: 'Plan mode ON — mutating tools blocked. Explore/read tools only. /mode act to leave.',
+        text: 'Plan modu AÇIK — değiştirici araçlar engellendi. Yalnızca keşif/okuma araçları. Çıkmak için /mode act.',
       },
     });
     return;
@@ -61,7 +61,7 @@ export function handleMode(ctx: SlashContext): void {
       type: 'append',
       entry: {
         kind: 'system',
-        text: 'Plan mode OFF — full tools available again (subject to permissions).',
+        text: 'Plan modu KAPALI — tüm araçlar yeniden kullanılabilir (izinlere tabi).',
       },
     });
     return;
@@ -81,10 +81,10 @@ export function handleMode(ctx: SlashContext): void {
         kind: 'system',
         text:
           mode === 'yolo'
-            ? 'Permissions: YOLO — auto-approve all tools (lab only).'
+            ? 'İzinler: YOLO — tüm araçları otomatik onayla (yalnızca laboratuvar).'
             : mode === 'auto-safe'
-              ? 'Permissions: auto-safe — read/observe tools auto-approve; shell/writes still prompt.'
-              : 'Permissions: ask — prompt on every sensitive tool.',
+              ? 'İzinler: auto-safe — okuma/gözlem araçları otomatik onaylanır; shell/yazma yine sorar.'
+              : 'İzinler: ask — her hassas araçta sor.',
       },
     });
     return;
@@ -93,7 +93,7 @@ export function handleMode(ctx: SlashContext): void {
     type: 'append',
     entry: {
       kind: 'error',
-      text: 'usage: /mode ask|auto-safe|yolo|plan|act  (or /mode show)',
+      text: 'kullanım: /mode ask|auto-safe|yolo|plan|act  (veya /mode show)',
     },
   });
 }
@@ -110,19 +110,19 @@ export function handleReset(ctx: SlashContext): void {
   if (ctx.agent.isRunning()) {
     ctx.dispatch({
       type: 'append',
-      entry: { kind: 'error', text: 'reset: a turn is already running — cancel it with Esc first' },
+      entry: { kind: 'error', text: 'reset: zaten çalışan bir tur var — önce Esc ile iptal edin' },
     });
     return;
   }
   confirmDestructive(
     ctx,
-    'Reset this conversation?',
-    'Conversation history and saved session will be cleared.',
+    'Bu konuşma sıfırlansın mı?',
+    'Konuşma geçmişi ve kayıtlı oturum temizlenecek.',
     () => {
       void ctx.agent.reset();
       ctx.clearScreen();
       ctx.dispatch({ type: 'clear' });
-      ctx.dispatch({ type: 'append', entry: { kind: 'system', text: 'conversation reset' } });
+      ctx.dispatch({ type: 'append', entry: { kind: 'system', text: 'konuşma sıfırlandı' } });
     },
   );
 }
@@ -143,38 +143,38 @@ export function handleHelp(ctx: SlashContext): void {
 const helpChalk = new Chalk({ level: chalkLevel() });
 
 const KEYBINDINGS: Array<{ keys: string; desc: string }> = [
-  { keys: '@<file>', desc: 'inline a file into the next turn (Tab opens a picker)' },
+  { keys: '@<file>', desc: 'bir dosyayı sonraki tura satır içi ekle (Tab seçici açar)' },
   {
     keys: '#<text>',
-    desc: 'remember a durable fact (#!<text> = personal); recalled automatically',
+    desc: 'kalıcı bir bilgi kaydet (#!<text> = kişisel); otomatik geri çağrılır',
   },
-  { keys: '/', desc: 'open the slash-command menu' },
-  { keys: '↑ / ↓', desc: 'walk session prompt history (on first / last line of input)' },
-  { keys: 'Ctrl-N / Ctrl-J', desc: 'insert a newline inside the input' },
-  { keys: 'Ctrl-A / Ctrl-E', desc: 'jump to start / end of the current line' },
+  { keys: '/', desc: 'eğik çizgi komut menüsünü aç' },
+  { keys: '↑ / ↓', desc: 'oturum istem geçmişinde gezin (girdinin ilk / son satırındayken)' },
+  { keys: 'Ctrl-N / Ctrl-J', desc: 'girdi içine yeni satır ekle' },
+  { keys: 'Ctrl-A / Ctrl-E', desc: 'geçerli satırın başına / sonuna git' },
   {
     keys: 'Home / End',
-    desc: 'line start/end when typing; chat oldest/latest when input is empty',
+    desc: 'yazarken satır başı/sonu; girdi boşken sohbetin en eski/en yeni noktası',
   },
-  { keys: 'PgUp / PgDn', desc: 'page the chat history (OpenTUI app viewport)' },
+  { keys: 'PgUp / PgDn', desc: 'sohbet geçmişinde sayfa çevir (OpenTUI uygulama görünümü)' },
   {
     keys: 'mouse wheel',
-    desc: 'scroll the chat (OpenTUI; Ink uses terminal scrollback)',
+    desc: 'sohbeti kaydır (OpenTUI; Ink terminal kaydırmasını kullanır)',
   },
-  { keys: 'Ctrl-O', desc: 'reprint the latest truncated tool output in full' },
-  { keys: 'Ctrl-Y', desc: 'copy the latest tool output / finding to the clipboard' },
-  { keys: 'Ctrl-F', desc: 'cycle the transcript filter (all→compact→findings→errors→current)' },
-  { keys: 'Esc', desc: 'cancel an in-flight turn / clear the input draft' },
-  { keys: 'Ctrl-C', desc: 'quit eschaton' },
+  { keys: 'Ctrl-O', desc: 'son kısaltılmış araç çıktısını tam olarak yeniden yazdır' },
+  { keys: 'Ctrl-Y', desc: 'son araç çıktısını / bulguyu panoya kopyala' },
+  { keys: 'Ctrl-F', desc: 'döküm filtresini döngüle (tümü→kompakt→bulgular→hatalar→geçerli)' },
+  { keys: 'Esc', desc: 'sürmekte olan turu iptal et / girdi taslağını temizle' },
+  { keys: 'Ctrl-C', desc: 'eschaton uygulamasından çık' },
 ];
 
 const TIPS: string[] = [
-  'browser_capture_* tools surface live request / cookie / storage data once Burp/browser traffic is forwarding to a --burp bridge.',
-  'coverage(action="untested", candidates=[...], vuln_classes=[...]) returns the (endpoint, param, class) tuples you have NOT tested yet — drive the next pass off of it.',
-  'read_payloads(skill="<name>") pulls curated wordlists from disk. Skills like ssti / jwt ship pre-canned payload files in their payloads/ directory.',
-  "Disabled skills are hidden from the agent's system prompt entirely. Use /skills to flip a skill back on without restarting.",
-  '/model list opens an interactive backend model picker; /model <id> validates against the live catalog and suggests the closest match on typo.',
-  '/memory intel stats shows learned background scenarios count; /memory intel clear wipes them (project/personal/all). Intelligence is auto-pruned but grows to the cap on long engagements.',
+  'browser_capture_* araçları, Burp/tarayıcı trafiği bir --burp köprüsüne yönlendirildiğinde canlı istek / çerez / depolama verilerini gösterir.',
+  'coverage(action="untested", candidates=[...], vuln_classes=[...]) henüz test ETMEDİĞİNİZ (uç nokta, parametre, sınıf) demetlerini döndürür — sonraki turu buna göre yönlendirin.',
+  'read_payloads(skill="<name>") diskten seçili kelime listelerini çeker. ssti / jwt gibi beceriler payloads/ dizinlerinde hazır yük dosyalarıyla gelir.',
+  'Devre dışı beceriler aracın sistem isteminden tamamen gizlenir. Yeniden başlatmadan bir beceriyi geri açmak için /skills kullanın.',
+  '/model list etkileşimli bir arka uç model seçicisi açar; /model <id> canlı katalogla doğrular ve yazım hatasında en yakın eşleşmeyi önerir.',
+  '/memory intel stats öğrenilen arka plan senaryolarının sayısını gösterir; /memory intel clear bunları siler (project/personal/all). İstihbarat otomatik budanır ancak uzun görevlerde üst sınıra kadar büyür.',
 ];
 
 function pad(s: string, n: number): string {
@@ -195,36 +195,36 @@ function buildHelpText(
   const cfg = readConfig();
   const enabled = agent.skills.listEnabled().length;
   const total = agent.skills.list().length;
-  const target = agent.target.baseURL() || '(none — engagement unset)';
+  const target = agent.target.baseURL() || '(yok — görev ayarlanmamış)';
   const provider = cfg.backend || 'ollama';
-  const model = cfg.model || agent.client.model() || '(unset)';
+  const model = cfg.model || agent.client.model() || '(ayarlanmamış)';
   const memory = agent.getMemoryStats();
 
   const out: string[] = [];
 
-  out.push(c.bold.cyan('Eschaton') + c.gray(' — quick reference'));
+  out.push(c.bold.cyan('Eschaton') + c.gray(' — hızlı başvuru'));
   out.push(c.gray('─'.repeat(60)));
   out.push('');
 
   // Session ----------------------------------------------------------
-  out.push(c.bold.white('Session'));
-  out.push(`  ${c.gray('provider')}   ${c.white(provider)}`);
+  out.push(c.bold.white('Oturum'));
+  out.push(`  ${c.gray('sağlayıcı')}  ${c.white(provider)}`);
   out.push(`  ${c.gray('model')}      ${c.white(model)}`);
-  out.push(`  ${c.gray('target')}     ${c.white(target)}`);
+  out.push(`  ${c.gray('hedef')}      ${c.white(target)}`);
   out.push(
-    `  ${c.gray('limits')}     max-steps ${c.white(String(agent.getMaxSteps()))}` +
-      `  ·  auto-compact ${c.white(String(agent.getAutoCompactThreshold()))} tok` +
-      `  ·  thinking ${c.white(agent.thinkingIsEnabled() ? 'on' : 'off')}`,
+    `  ${c.gray('limitler')}   maks adım ${c.white(String(agent.getMaxSteps()))}` +
+      `  ·  otomatik özetleme ${c.white(String(agent.getAutoCompactThreshold()))} tok` +
+      `  ·  düşünme ${c.white(agent.thinkingIsEnabled() ? 'on' : 'off')}`,
   );
-  out.push(`  ${c.gray('skills')}     ${c.white(`${enabled}/${total}`)} enabled`);
+  out.push(`  ${c.gray('beceriler')}  ${c.white(`${enabled}/${total}`)} etkin`);
   out.push(
-    `  ${c.gray('memory')}     ${c.white(`${memory.items} items`)}` +
-      `  ·  compactions ${c.white(String(memory.compactions))}`,
+    `  ${c.gray('bellek')}     ${c.white(`${memory.items} öğe`)}` +
+      `  ·  özetlemeler ${c.white(String(memory.compactions))}`,
   );
   out.push('');
 
   // Slash commands ---------------------------------------------------
-  out.push(c.bold.white('Slash commands'));
+  out.push(c.bold.white('Eğik çizgi komutları'));
   // Width of "name args" column for alignment.
   const namelines = SLASH_ITEMS.map((s) => (s.args ? `${s.name} ${s.args}` : s.name));
   const w = Math.min(36, Math.max(...namelines.map((n) => n.length)) + 2);
@@ -235,7 +235,7 @@ function buildHelpText(
   out.push('');
 
   // Keybindings ------------------------------------------------------
-  out.push(c.bold.white('Input & navigation'));
+  out.push(c.bold.white('Girdi ve gezinme'));
   const kw = Math.max(...KEYBINDINGS.map((k) => k.keys.length)) + 2;
   for (const k of KEYBINDINGS) {
     out.push(`  ${c.cyan(pad(k.keys, kw))}${c.gray(k.desc)}`);
@@ -243,7 +243,7 @@ function buildHelpText(
   out.push('');
 
   // Tips -------------------------------------------------------------
-  out.push(c.bold.white('Tips'));
+  out.push(c.bold.white('İpuçları'));
   for (const t of TIPS) {
     // Wrap each tip to ~88 cols, manually so we don't blow the terminal
     // layout. Words only.
@@ -259,7 +259,7 @@ function buildHelpText(
     if (line.trim().length > 0) out.push(c.gray(line.trimEnd()));
   }
   out.push('');
-  out.push(c.gray('Type ') + c.cyan('/') + c.gray(' for the live command menu.'));
+  out.push(c.gray('Canlı komut menüsü için ') + c.cyan('/') + c.gray(' yazın.'));
 
   return out.join('\n');
 }

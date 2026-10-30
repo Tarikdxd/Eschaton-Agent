@@ -113,7 +113,7 @@ describe('formatDetail', () => {
   it('counts the elision cue inside maxLines so body rows never overshoot', () => {
     const raw = Array.from({ length: 20 }, (_, i) => `line-${i}`).join('\n');
     const { lines, elided } = formatDetail(raw, 8000, 4, 80);
-    expect(elided).toMatch(/more line/);
+    expect(elided).toMatch(/satır daha/);
     // content lines + elision cue ≤ 4
     expect(lines.length).toBeLessThanOrEqual(3);
     expect(lines.length + (elided ? 1 : 0)).toBeLessThanOrEqual(4);
@@ -157,7 +157,7 @@ describe('PermissionModal short-terminal budget', () => {
     expect(frame).toMatch(/\[y\]/);
     expect(frame).toMatch(/\[n\]/);
     // maxDetailLines=1 folds cue into the head line with "…"
-    expect(frame).toMatch(/…|more line|truncated|chars cut/i);
+    expect(frame).toMatch(/…|satır daha|kırpıldı|karakter kesildi/i);
     // Must not dump the whole payload into a 16-row window.
     expect((frame.match(/line-\d+/g) ?? []).length).toBeLessThan(8);
   });
@@ -175,13 +175,13 @@ describe('PermissionModal rendering', () => {
       />,
     );
     const frame = setup.captureCharFrame();
-    expect(frame).toMatch(/PERMISSION/i);
-    expect(frame).toMatch(/Shell command/i);
+    expect(frame).toMatch(/İZİN/i);
+    expect(frame).toMatch(/Kabuk komutu/i);
     expect(frame).toContain('$');
     expect(frame).toContain('curl -s');
-    expect(frame).toMatch(/\[y\].*once/i);
-    expect(frame).toMatch(/\[a\].*session/i);
-    expect(frame).toMatch(/\[n\].*deny/i);
+    expect(frame).toMatch(/\[y\].*bir kez/i);
+    expect(frame).toMatch(/\[a\].*oturum/i);
+    expect(frame).toMatch(/\[n\].*reddet/i);
   });
 
   it('keeps the head of a long command and notes elided lines', async () => {
@@ -194,7 +194,7 @@ describe('PermissionModal rendering', () => {
     const frame = setup.captureCharFrame();
     expect(frame).toContain('curl -s -X POST');
     // Height-capped: tail is elided with a "more lines" cue.
-    expect(frame).toMatch(/more line/);
+    expect(frame).toMatch(/satır daha/);
   });
 
   it('respects a tight maxDetailLines so short terminals stay on-screen', async () => {
@@ -209,7 +209,7 @@ describe('PermissionModal rendering', () => {
     );
     const frame = setup.captureCharFrame();
     expect(frame).toContain('line-0');
-    expect(frame).toMatch(/more line/);
+    expect(frame).toMatch(/satır daha/);
     expect(frame).toMatch(/\[y\]/);
     // Body should not dump all 30 lines into a short viewport.
     expect((frame.match(/line-\d+/g) ?? []).length).toBeLessThan(8);
@@ -225,7 +225,7 @@ describe('PermissionModal rendering', () => {
     expect(frame).toContain('echo');
     expect(frame).toMatch(/A{20,}/);
     // Char cap and/or line cap leave an elision cue.
-    expect(frame).toMatch(/truncated|more line|chars cut/i);
+    expect(frame).toMatch(/kırpıldı|satır daha|karakter kesildi/i);
   });
 });
 

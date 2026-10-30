@@ -41,7 +41,7 @@ describe('StatusBar', () => {
       ctxTokens: 1000, // low — should not show ctx
       target: 'https://example.test/',
     });
-    expect(frame).toContain('Ready');
+    expect(frame).toContain('Hazır');
     expect(frame).toContain('qwen3:14b');
     expect(frame).toContain('example.test');
     expect(frame).not.toMatch(/ctx ~/);
@@ -50,7 +50,7 @@ describe('StatusBar', () => {
 
   it('shows Offline when the API is not ready', async () => {
     const frame = await renderFrame({ ...base, apiReady: false });
-    expect(frame).toContain('Offline');
+    expect(frame).toContain('Çevrimdışı');
   });
 
   it('names the running tool and elapsed clock while busy (no Esc spam)', async () => {
@@ -77,7 +77,7 @@ describe('StatusBar', () => {
     const yes = await renderFrame({ ...base, toolSupport: 'yes' });
     expect(yes).not.toContain('tools ready');
     const no = await renderFrame({ ...base, toolSupport: 'no' });
-    expect(no).toMatch(/[Nn]o tools/);
+    expect(no).toMatch(/[Aa]raç yok/);
   });
 
   it('shows ctx only when the window is getting full', async () => {

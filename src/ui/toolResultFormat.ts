@@ -300,10 +300,9 @@ export function buildToolResultView(raw: string): ToolResultView {
   if (headStr.length > PREVIEW_CHAR_CAP) headStr = headStr.slice(0, PREVIEW_CHAR_CAP);
   const shownLines = headStr.split('\n').length;
   const hiddenLines = Math.max(0, lines.length - shownLines);
-  const what =
-    hiddenLines > 0 ? `${hiddenLines} more line${hiddenLines === 1 ? '' : 's'}` : 'more output';
+  const what = hiddenLines > 0 ? `${hiddenLines} satır daha` : 'daha fazla çıktı';
   const notice = chalk.dim(
-    `… ${what} · ${formatBytes(content.length)} — click or Ctrl-O to expand`,
+    `… ${what} · ${formatBytes(content.length)} — genişletmek için tıkla veya Ctrl-O`,
   );
   return { full, preview: `${colorize(headStr)}\n${notice}`, collapsible: true };
 }

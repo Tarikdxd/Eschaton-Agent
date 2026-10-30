@@ -87,8 +87,8 @@ describe('SkillsModal rendering', () => {
     const agent = makeAgentWithSkills([]);
     const setup = await renderModal(<SkillsModal agent={agent} onClose={vi.fn()} />);
     const frame = setup.captureCharFrame();
-    expect(frame).toContain('SKILLS');
-    expect(frame).toContain('No skills are loaded');
+    expect(frame).toContain('BECERİLER');
+    expect(frame).toContain('Yüklü beceri yok');
   });
 
   it('lists skills with enabled state and count', async () => {
@@ -97,8 +97,8 @@ describe('SkillsModal rendering', () => {
     const frame = setup.captureCharFrame();
     expect(frame).toContain('recon');
     expect(frame).toContain('webvuln');
-    expect(frame).toContain('2/2 enabled');
-    expect(frame).toContain('[on]');
+    expect(frame).toContain('2/2 etkin');
+    expect(frame).toContain('[açık]');
   });
 
   it('windows a long skill list and shows more-above/below cues', async () => {
@@ -106,8 +106,8 @@ describe('SkillsModal rendering', () => {
     const agent = makeAgentWithSkills(names);
     const setup = await renderModal(<SkillsModal agent={agent} onClose={vi.fn()} />);
     let frame = setup.captureCharFrame();
-    expect(frame).toContain('20/20 enabled');
-    expect(frame).toContain('more below');
+    expect(frame).toContain('20/20 etkin');
+    expect(frame).toContain('aşağıda');
     expect(frame).not.toContain('skill19'); // sorted alpha; last page has skill19
 
     // Jump down past the first page so the "more above" cue appears.
@@ -115,7 +115,7 @@ describe('SkillsModal rendering', () => {
       await pressAndFlush(setup, () => setup.mockInput.pressArrow('down'));
     }
     frame = setup.captureCharFrame();
-    expect(frame).toMatch(/more above/);
+    expect(frame).toMatch(/yukarıda/);
   });
 });
 
@@ -142,14 +142,14 @@ describe('SkillsModal key handling', () => {
     await pressAndFlush(setup, () => setup.mockInput.pressEnter());
     expect(agent.skills.isDisabled('recon')).toBe(true);
     let frame = setup.captureCharFrame();
-    expect(frame).toContain('[off]');
-    expect(frame).toContain('0/1 enabled');
+    expect(frame).toContain('[kapalı]');
+    expect(frame).toContain('0/1 etkin');
 
     await pressAndFlush(setup, () => setup.mockInput.pressEnter());
     expect(agent.skills.isDisabled('recon')).toBe(false);
     frame = setup.captureCharFrame();
-    expect(frame).toContain('[on]');
-    expect(frame).toContain('1/1 enabled');
+    expect(frame).toContain('[açık]');
+    expect(frame).toContain('1/1 etkin');
   });
 
   it('digit jump moves selection to the Nth skill in list() order', async () => {

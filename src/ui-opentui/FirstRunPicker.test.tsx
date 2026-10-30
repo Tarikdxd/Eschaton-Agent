@@ -40,11 +40,11 @@ describe('FirstRunPicker rendering', () => {
     const setup = await renderModal(<FirstRunPicker onPick={vi.fn()} onCancel={vi.fn()} />);
     const frame = setup.captureCharFrame();
     expect(frame).toContain('Eschaton');
-    expect(frame).toContain('setup');
-    expect(frame).toContain('TOOLING PROFILE');
-    expect(frame).toContain('curl + Unix tools only');
-    expect(frame).toContain('curl + Unix + specialized scanners');
-    expect(frame).toContain('reproducible one-liners');
+    expect(frame).toContain('kurulum');
+    expect(frame).toContain('ARAÇ TAKIMI');
+    expect(frame).toContain('curl + Unix araçları');
+    expect(frame).toContain('curl + Unix + özel tarayıcılar');
+    expect(frame).toContain('yeniden üretilebilir tek satırlık');
   });
 });
 
@@ -61,7 +61,7 @@ describe('FirstRunPicker key handling', () => {
     const setup = await renderModal(<FirstRunPicker onPick={onPick} onCancel={vi.fn()} />);
     await pressAndFlush(setup, () => setup.mockInput.pressArrow('down'));
     const frame = setup.captureCharFrame();
-    expect(frame).toContain('may pick a specialized scanner');
+    expect(frame).toContain('özel bir tarayıcı seçebilir');
     await pressAndFlush(setup, () => setup.mockInput.pressEnter());
     expect(onPick).toHaveBeenCalledWith('full');
   });

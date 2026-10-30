@@ -8,81 +8,91 @@ export interface SlashItem {
 }
 
 export const SLASH_ITEMS: SlashItem[] = [
-  { name: '/help', description: 'show keybindings + slash commands' },
+  { name: '/help', description: 'tuş kısayollarını ve eğik çizgi komutlarını göster' },
   {
     name: '/provider',
-    description: 'interactive picker: select LLM backend, then a model from its catalog',
+    description: 'etkileşimli seçici: LLM arka ucunu, ardından katalogundan bir modeli seç',
   },
   {
     name: '/model',
     args: '<id|list|custom>',
-    description: 'switch model (any custom id OK), list catalog, or enter a custom id',
+    description: 'model değiştir (özel kimlik serbest), kataloğu listele veya özel kimlik gir',
   },
   {
     name: '/config',
     args: '[show|path|example]',
-    description: 'show path + readable config.json (redacted), or print an annotated example',
+    description: 'yolu + okunabilir config.json (maskelenmiş) göster veya açıklamalı örnek yazdır',
   },
-  { name: '/plan', args: '[objective]', description: 'plan-only mode without tools' },
-  { name: '/next', args: '[objective]', description: 'coverage-driven next test suggestions' },
-  { name: '/compact', description: 'summarize conversation into persistent session memory' },
+  { name: '/plan', args: '[objective]', description: 'araçsız, yalnızca plan modu' },
+  { name: '/next', args: '[objective]', description: 'kapsam odaklı sonraki test önerileri' },
+  { name: '/compact', description: 'konuşmayı kalıcı oturum belleğine özetle' },
   {
     name: '/memory',
     args: '[add <text>|list|forget <text>|clear|provider]',
     description:
-      'saved + session memory; add/list curated facts (or #<text>), forget/clear/provider',
+      'kayıtlı + oturum belleği; seçili bilgileri ekle/listele (#<text> ile de), forget/clear/provider komutları',
   },
-  { name: '/snapshot', description: 'write the current redacted context snapshot now' },
+  { name: '/snapshot', description: 'geçerli maskelenmiş bağlam anlık görüntüsünü şimdi yaz' },
   {
     name: '/user',
     args: '[add <text>|clear]',
-    description: 'view/add/clear what the agent has learned about you (~/.eschaton/USER.md)',
+    description:
+      'aracın senin hakkında öğrendiklerini görüntüle/ekle/temizle (~/.eschaton/USER.md)',
   },
   {
     name: '/report',
     args: '[markdown|sarif]',
-    description: 'export all confirmed findings to one report file (default markdown)',
+    description: 'onaylanmış tüm bulguları tek bir rapor dosyasına aktar (varsayılan markdown)',
   },
-  { name: '/burp', args: '[port]', description: 'start the local Burp/Eschaton listener' },
-  { name: '/jobs', description: 'list background shell jobs (running / finished)' },
-  { name: '/clear', description: 'clear the on-screen transcript only' },
-  { name: '/reset', description: 'clear conversation + saved session' },
+  { name: '/burp', args: '[port]', description: 'yerel Burp/Eschaton dinleyicisini başlat' },
+  { name: '/jobs', description: 'arka plan kabuk işlerini listele (çalışan / biten)' },
+  { name: '/clear', description: 'yalnızca ekrandaki dökümü temizle' },
+  { name: '/reset', description: 'konuşmayı + kayıtlı oturumu temizle' },
   {
     name: '/target',
     args: '<url>',
-    description: 'pin an engagement base URL; http tool defaults to it (no arg clears)',
+    description:
+      "bir görev temel URL'si sabitle; http aracı varsayılan olarak onu kullanır (argsız temizler)",
   },
   {
     name: '/scope',
     args: '[add|deny|remove|list|clear] <pattern>',
     description:
-      'engagement host allowlist for http/web_fetch; empty scope enforces nothing (default)',
+      'http/web_fetch için görev ana makine izin listesi; boş kapsam hiçbir şeyi zorlamaz (varsayılan)',
   },
   {
     name: '/skills',
     args: '[enable|disable|new <name>]',
-    description: 'list/toggle skills, or scaffold a new one (/skills new <name>)',
+    description: 'becerileri listele/aç-kapat veya yeni bir iskelet oluştur (/skills new <name>)',
   },
   {
     name: '/maxsteps',
     args: '<n>',
-    description: 'per-turn tool budget before auto-continue (default 20)',
+    description: 'otomatik devam öncesi tur başına araç bütçesi (varsayılan 20)',
   },
-  { name: '/thinking', args: 'on|off', description: 'toggle the show-thinking system directive' },
-  { name: '/update', args: '[version]', description: 'fetch GitHub release updates and install' },
-  { name: '/yolo', args: '[on|off]', description: 'toggle YOLO auto-approve (lab only)' },
+  {
+    name: '/thinking',
+    args: 'on|off',
+    description: 'düşünme gösterimi sistem direktifini aç/kapat',
+  },
+  { name: '/update', args: '[version]', description: 'GitHub sürüm güncellemelerini getir ve kur' },
+  {
+    name: '/yolo',
+    args: '[on|off]',
+    description: 'YOLO otomatik onayını aç/kapat (yalnızca laboratuvar)',
+  },
   {
     name: '/mode',
     args: 'ask|auto-safe|yolo|plan|act',
-    description: 'permission tier (ask/auto-safe/yolo) or plan/act work mode',
+    description: 'izin seviyesi (ask/auto-safe/yolo) veya plan/act çalışma modu',
   },
-  { name: '/act', description: 'exit plan mode (alias for /mode act)' },
+  { name: '/act', description: 'plan modundan çık (/mode act takma adı)' },
   {
     name: '/compact-mode',
     args: '[on|off]',
-    description: 'toggle tighter transcript spacing (no blank lines between entries)',
+    description: 'daha sıkı döküm aralığını aç/kapat (girdiler arasında boş satır yok)',
   },
-  { name: '/exit', description: 'quit eschaton' },
+  { name: '/exit', description: 'eschaton uygulamasından çık' },
 ];
 
 /**

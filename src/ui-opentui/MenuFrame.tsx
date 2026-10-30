@@ -62,7 +62,7 @@ export function MenuFrame({
       {hiddenAbove > 0 ? (
         <box style={{ flexDirection: 'row', paddingX: 1 }}>
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            ··· {hiddenAbove} more above ···
+            ··· yukarıda {hiddenAbove} tane daha ···
           </text>
         </box>
       ) : null}
@@ -72,7 +72,7 @@ export function MenuFrame({
       {hiddenBelow > 0 ? (
         <box style={{ flexDirection: 'row', paddingX: 1 }}>
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            ··· {hiddenBelow} more below ···
+            ··· aşağıda {hiddenBelow} tane daha ···
           </text>
         </box>
       ) : null}

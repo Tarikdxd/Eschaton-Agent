@@ -12,8 +12,7 @@
     "skills",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE",
-    "NOTICE"
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsup",

@@ -26,17 +26,17 @@ interface ProfileOption {
 const OPTIONS: ProfileOption[] = [
   {
     value: 'minimal',
-    label: 'curl + Unix tools only  (recommended)',
+    label: 'yalnızca curl + Unix araçları  (önerilen)',
     description: 'curl + jq, grep, awk, sed, head, sort, uniq',
     helper:
-      "The agent stays inside reproducible one-liners. Every probe drops straight into a bug-bounty report. It won't reach for ffuf / nuclei / sqlmap on its own.",
+      "Ajan yalnızca yeniden üretilebilir tek satırlık komutlarda kalır. Her deneme doğrudan bir bug-bounty raporuna girer. Kendi başına ffuf / nuclei / sqlmap'e başvurmaz.",
   },
   {
     value: 'full',
-    label: 'curl + Unix + specialized scanners',
-    description: 'adds ffuf, nuclei, sqlmap, gobuster, subfinder, httpx, wfuzz, masscan',
+    label: 'curl + Unix + özel tarayıcılar',
+    description: 'ffuf, nuclei, sqlmap, gobuster, subfinder, httpx, wfuzz, masscan ekler',
     helper:
-      'The agent may pick a specialized scanner when it judges the workload (large fuzz, CVE template sweep). You still approve each run via the permission modal — scanners are only invoked when locally installed.',
+      'Ajan, iş yükünü değerlendirdiğinde (büyük fuzz, CVE şablon taraması) özel bir tarayıcı seçebilir. Her çalıştırmayı yine izin penceresinden onaylarsın — tarayıcılar yalnızca yerel olarak kuruluysa çağrılır.',
   },
 ];
 
@@ -81,13 +81,13 @@ export function FirstRunPicker({ onPick, onCancel }: FirstRunPickerProps) {
         <text fg={theme.brand} attributes={TextAttributes.BOLD}>
           Eschaton
         </text>
-        <text fg={theme.muted}> · setup</text>
+        <text fg={theme.muted}> · kurulum</text>
       </box>
 
       <MenuFrame
-        header="Tooling profile"
-        subtitle="Which tools may the agent use?"
-        footer="↑↓ navigate · Enter confirm · Esc quit"
+        header="Araç takımı"
+        subtitle="Ajan hangi araçları kullanabilir?"
+        footer="↑↓ gezin · Enter onayla · Esc çık"
         minWidth={56}
       >
         {OPTIONS.map((o, i) => {

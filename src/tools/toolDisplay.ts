@@ -4,15 +4,15 @@
 // names and args.
 
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  ask_user: 'Ask User',
-  confirm_finding: 'Confirmed Finding',
-  load_skill: 'Skill',
+  ask_user: 'Kullanıcıya Sor',
+  confirm_finding: 'Doğrulanmış Bulgu',
+  load_skill: 'Beceri',
   BashTool: 'shell',
   bash: 'shell',
-  mcp_browser_browser_navigate: 'Browser',
-  mcp_browser_browser_click: 'Browser Click',
-  web_fetch: 'Web Fetch',
-  web_search: 'Web Search',
+  mcp_browser_browser_navigate: 'Tarayıcı',
+  mcp_browser_browser_click: 'Tarayıcı Tıkla',
+  web_fetch: 'Web Getir',
+  web_search: 'Web Ara',
 };
 
 export function displayToolName(name: string): string {
@@ -20,10 +20,29 @@ export function displayToolName(name: string): string {
   return TOOL_DISPLAY_NAMES[name] ?? name;
 }
 
+const BROWSER_ACTION_TR: Record<string, string> = {
+  navigate: 'Git',
+  click: 'Tıkla',
+  type_text: 'Metin yaz',
+  screenshot: 'Ekran görüntüsü',
+  snapshot: 'Anlık görüntü',
+  evaluate: 'Değerlendir',
+  fill: 'Doldur',
+  select: 'Seç',
+  hover: 'Üzerine gel',
+  press_key: 'Tuşa bas',
+  go_back: 'Geri git',
+  go_forward: 'İleri git',
+  reload: 'Yenile',
+  scroll: 'Kaydır',
+};
+
 function browserToolName(name: string): string {
   if (TOOL_DISPLAY_NAMES[name]) return TOOL_DISPLAY_NAMES[name];
-  const action = name.replace(/^mcp_browser_browser_/, '').replace(/_/g, ' ');
-  return `Browser ${titleCase(action)}`;
+  const action = name.replace(/^mcp_browser_browser_/, '');
+  const tr = BROWSER_ACTION_TR[action];
+  if (tr) return `Tarayıcı ${tr}`;
+  return `Tarayıcı ${titleCase(action.replace(/_/g, ' '))}`;
 }
 
 function titleCase(s: string): string {
@@ -79,8 +98,13 @@ export function formatToolResult(name: string, result: string): string | null {
     try {
       const s = JSON.parse(result) as Record<string, unknown>;
       const n = (k: string): number | string => (typeof s[k] === 'number' ? (s[k] as number) : 0);
-      const last = typeof s.lastActivityAt === 'string' ? s.lastActivityAt : 'never';
-      return `requests: ${n('requests')} · endpoints: ${n('endpoints')} · snapshots: ${n('snapshots')} · last activity: ${last}`;
+      const last =
+        typeof s.lastActivityAt === 'string'
+          ? s.lastActivityAt === 'never'
+            ? 'hiç'
+            : s.lastActivityAt
+          : 'hiç';
+      return `istek: ${n('requests')} · uç nokta: ${n('endpoints')} · anlık görüntü: ${n('snapshots')} · son etkinlik: ${last}`;
     } catch {
       return null; // malformed/partial JSON — use the default view
     }
@@ -97,7 +121,7 @@ function formatLoadSkillResult(result: string): string | null {
   if (fork) {
     const name = fork[1] ?? 'skill';
     const n = fork[2] ?? '0';
-    return `forked ${name} · ${n} tools`;
+    return `${name} çatallandı · ${n} araç`;
   }
 
   const skill = result.match(/^# Skill:\s*(.+)$/m)?.[1]?.trim();
@@ -110,8 +134,8 @@ function formatLoadSkillResult(result: string): string | null {
     ?.replace(/^#\s+/, '')
     .trim();
 
-  const lines = [`loaded skill: ${skill}`];
-  if (title) lines.push(`playbook: ${title}`);
+  const lines = [`beceri yüklendi: ${skill}`];
+  if (title) lines.push(`oyun kitabı: ${title}`);
   return lines.join('\n');
 }
 
@@ -123,7 +147,7 @@ function formatAskUserCall(args: Record<string, unknown>): string | null {
   const header = typeof first.header === 'string' && first.header ? first.header : '';
   const question = typeof first.question === 'string' && first.question ? first.question : '';
   const count = questions.length;
-  const countText = `${count} question${count === 1 ? '' : 's'}`;
+  const countText = `${count} soru`;
 
   if (header && question) return `${header} · ${countText} · ${question}`;
   if (header) return `${header} · ${countText}`;
@@ -140,7 +164,7 @@ function formatAskUserResult(result: string): string | null {
   }
   if (!isRecord(parsed) || !Array.isArray(parsed.answers)) return null;
 
-  const lines = ['answers:'];
+  const lines = ['yanıtlar:'];
   for (const raw of parsed.answers) {
     if (!isRecord(raw)) continue;
     const question = typeof raw.question === 'string' ? raw.question.trim() : '';

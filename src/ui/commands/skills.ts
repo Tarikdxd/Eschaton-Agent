@@ -17,7 +17,7 @@ export function handleSkills(ctx: SlashContext): void {
   const { agent, rest, dispatch, persistDisabledSkills, onSkillCreated } = ctx;
   const all = agent.skills.list();
   if (all.length === 0) {
-    dispatch({ type: 'append', entry: { kind: 'system', text: '/skills: no skills are loaded' } });
+    dispatch({ type: 'append', entry: { kind: 'system', text: '/skills: yüklü beceri yok' } });
     return;
   }
 
@@ -39,7 +39,7 @@ export function handleSkills(ctx: SlashContext): void {
         type: 'append',
         entry: {
           kind: 'error',
-          text: 'usage: /skills new <name>  (lowercase, letters/digits/hyphens)',
+          text: 'kullanım: /skills new <name>  (küçük harf, harf/rakam/tire)',
         },
       });
       return;
@@ -50,7 +50,7 @@ export function handleSkills(ctx: SlashContext): void {
     if (existsSync(file)) {
       dispatch({
         type: 'append',
-        entry: { kind: 'error', text: `/skills new: a skill already exists at ${file}` },
+        entry: { kind: 'error', text: `/skills new: ${file} konumunda zaten bir beceri var` },
       });
       return;
     }
@@ -68,7 +68,7 @@ export function handleSkills(ctx: SlashContext): void {
         type: 'append',
         entry: {
           kind: 'system',
-          text: `created skill "${name}" at ${file}\nedit it (hot-reloads on save), then invoke with /${name}.`,
+          text: `"${name}" becerisi ${file} konumunda oluşturuldu.\nDüzenleyin (kaydedince sıcak yeniden yüklenir), sonra /${name} ile çağırın.`,
         },
       });
     } catch (err) {
@@ -93,7 +93,7 @@ export function handleSkills(ctx: SlashContext): void {
   if (!name) {
     dispatch({
       type: 'append',
-      entry: { kind: 'error', text: 'usage: /skills <name>  ·  /skills enable|disable <name>' },
+      entry: { kind: 'error', text: 'kullanım: /skills <name>  ·  /skills enable|disable <name>' },
     });
     return;
   }
@@ -102,7 +102,7 @@ export function handleSkills(ctx: SlashContext): void {
       type: 'append',
       entry: {
         kind: 'error',
-        text: `/skills: unknown skill "${name}". Run /skills to list available skills.`,
+        text: `/skills: bilinmeyen beceri "${name}". Kullanılabilir becerileri listelemek için /skills çalıştırın.`,
       },
     });
     return;
@@ -117,7 +117,7 @@ export function handleSkills(ctx: SlashContext): void {
           type: 'append',
           entry: {
             kind: 'system',
-            text: `/skills: ${name} already ${targetEnabled ? 'enabled' : 'disabled'}`,
+            text: `/skills: ${name} zaten ${targetEnabled ? 'etkin' : 'devre dışı'}`,
           },
         });
         return;
@@ -131,7 +131,7 @@ export function handleSkills(ctx: SlashContext): void {
             type: 'append',
             entry: {
               kind: 'error',
-              text: `/skills: state changed but could not persist: ${(err as Error).message}`,
+              text: `/skills: durum değişti ancak kalıcı yazılamadı: ${(err as Error).message}`,
             },
           });
           return;
@@ -141,7 +141,7 @@ export function handleSkills(ctx: SlashContext): void {
         type: 'append',
         entry: {
           kind: 'system',
-          text: `/skills: ${name} ${targetEnabled ? 'enabled' : 'disabled'}`,
+          text: `/skills: ${name} ${targetEnabled ? 'etkin' : 'devre dışı'}`,
         },
       });
     })
@@ -168,7 +168,7 @@ export function handleSkillDirectInvoke(ctx: SlashContext, cmd: string | undefin
     .then((n) =>
       dispatch({
         type: 'append',
-        entry: { kind: 'system', text: `loaded /${n} — it'll apply to your next prompt.` },
+        entry: { kind: 'system', text: `/${n} yüklendi — sonraki isteminize uygulanacak.` },
       }),
     )
     .catch((err: unknown) =>

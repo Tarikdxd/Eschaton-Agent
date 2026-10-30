@@ -30,7 +30,7 @@ export interface InputProps {
 const CONTINUATION_INDENT = '  ';
 const DEFAULT_PROMPT = `${theme.glyphs.prompt} `;
 // Short, friendly — no keybinding laundry list in the empty box.
-const DEFAULT_PLACEHOLDER = 'Ask anything…  (/ commands · @ files)';
+const DEFAULT_PLACEHOLDER = 'Herhangi bir şey sor…  (/ komutlar · @ dosyalar)';
 // Hints only when App passes one (e.g. agent running). Keeps the idle UI quiet.
 const DEFAULT_HINT: string | undefined = undefined;
 

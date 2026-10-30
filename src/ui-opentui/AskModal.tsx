@@ -87,7 +87,7 @@ export function AskModal({ req }: { req: AskRequest }) {
   const visible = options.slice(windowStart, windowStart + windowSize);
   const hiddenAbove = windowStart;
   const hiddenBelow = Math.max(0, options.length - (windowStart + windowSize));
-  const footer = req.question.footer ?? '↑↓ navigate · 1-9 jump · Enter select · Esc cancel';
+  const footer = req.question.footer ?? '↑↓ gezin · 1-9 atla · Enter seç · Esc iptal';
 
   const showGroupAt = (globalIndex: number): string | undefined => {
     const o = options[globalIndex];
@@ -137,7 +137,7 @@ export function AskModal({ req }: { req: AskRequest }) {
       {hiddenAbove > 0 ? (
         <box style={{ flexDirection: 'row', marginTop: 1 }}>
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            ··· {hiddenAbove} more above ···
+            ··· yukarıda {hiddenAbove} tane daha ···
           </text>
         </box>
       ) : (
@@ -201,14 +201,14 @@ export function AskModal({ req }: { req: AskRequest }) {
       {hiddenBelow > 0 ? (
         <box style={{ flexDirection: 'row', marginTop: 1 }}>
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            ··· {hiddenBelow} more below ···
+            ··· aşağıda {hiddenBelow} tane daha ···
           </text>
         </box>
       ) : null}
 
       <box style={{ flexDirection: 'row', marginTop: compact ? 0 : 1 }}>
         <text fg={theme.muted} attributes={TextAttributes.DIM}>
-          {compact ? '↑↓ navigate · Enter select · Esc cancel' : footer}
+          {compact ? '↑↓ gezin · Enter seç · Esc iptal' : footer}
         </text>
       </box>
     </box>

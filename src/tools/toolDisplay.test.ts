@@ -5,25 +5,25 @@ import { describe, expect, it } from 'vitest';
 import { displayToolName, formatToolResult, primaryToolArg } from './toolDisplay.js';
 
 describe('displayToolName', () => {
-  it('maps the browser navigate tool to "Browser"', () => {
-    expect(displayToolName('mcp_browser_browser_navigate')).toBe('Browser');
+  it('maps the browser navigate tool to "Tarayıcı"', () => {
+    expect(displayToolName('mcp_browser_browser_navigate')).toBe('Tarayıcı');
   });
   it('maps browser MCP actions to readable labels', () => {
-    expect(displayToolName('mcp_browser_browser_click')).toBe('Browser Click');
-    expect(displayToolName('mcp_browser_browser_type_text')).toBe('Browser Type Text');
+    expect(displayToolName('mcp_browser_browser_click')).toBe('Tarayıcı Tıkla');
+    expect(displayToolName('mcp_browser_browser_type_text')).toBe('Tarayıcı Metin yaz');
   });
-  it('maps load_skill to "Skill"', () => {
-    expect(displayToolName('load_skill')).toBe('Skill');
+  it('maps load_skill to "Beceri"', () => {
+    expect(displayToolName('load_skill')).toBe('Beceri');
   });
-  it('maps confirm_finding to "Confirmed Finding"', () => {
-    expect(displayToolName('confirm_finding')).toBe('Confirmed Finding');
+  it('maps confirm_finding to "Doğrulanmış Bulgu"', () => {
+    expect(displayToolName('confirm_finding')).toBe('Doğrulanmış Bulgu');
   });
-  it('maps ask_user to "Ask User"', () => {
-    expect(displayToolName('ask_user')).toBe('Ask User');
+  it('maps ask_user to "Kullanıcıya Sor"', () => {
+    expect(displayToolName('ask_user')).toBe('Kullanıcıya Sor');
   });
   it('maps web tools to title-case labels', () => {
-    expect(displayToolName('web_fetch')).toBe('Web Fetch');
-    expect(displayToolName('web_search')).toBe('Web Search');
+    expect(displayToolName('web_fetch')).toBe('Web Getir');
+    expect(displayToolName('web_search')).toBe('Web Ara');
   });
   it('maps BashTool aliases to shell', () => {
     expect(displayToolName('BashTool')).toBe('shell');
@@ -80,7 +80,7 @@ describe('primaryToolArg', () => {
         ],
       }),
     ).toBe(
-      'Scope · 2 questions · Confirming scope — I want to make sure I test the right surface. Which of these matches the engagement?',
+      'Scope · 2 soru · Confirming scope — I want to make sure I test the right surface. Which of these matches the engagement?',
     );
   });
   it('returns null for unknown tools or missing/empty fields', () => {
@@ -100,7 +100,7 @@ describe('formatToolResult', () => {
       lastActivityAt: 'never',
     });
     expect(formatToolResult('browser_capture_status', json)).toBe(
-      'requests: 0 · endpoints: 0 · snapshots: 0 · last activity: never',
+      'istek: 0 · uç nokta: 0 · anlık görüntü: 0 · son etkinlik: hiç',
     );
   });
   it('renders load_skill as a compact skill summary', () => {
@@ -115,7 +115,7 @@ describe('formatToolResult', () => {
       '## 2. Known-CVE pass',
     ].join('\n');
     expect(formatToolResult('load_skill', skillBody)).toBe(
-      ['loaded skill: webvuln', 'playbook: Web vuln hunting playbook'].join('\n'),
+      ['beceri yüklendi: webvuln', 'oyun kitabı: Web vuln hunting playbook'].join('\n'),
     );
   });
   it('renders skill-fork summaries as a short done line', () => {
@@ -124,7 +124,7 @@ describe('formatToolResult', () => {
       '',
       'Found 12 subdomains…',
     ].join('\n');
-    expect(formatToolResult('load_skill', body)).toBe('forked recon · 4 tools');
+    expect(formatToolResult('load_skill', body)).toBe('recon çatallandı · 4 araç');
   });
   it('renders ask_user answers as a readable summary', () => {
     const result = JSON.stringify({
@@ -142,7 +142,7 @@ describe('formatToolResult', () => {
     });
     expect(formatToolResult('ask_user', result)).toBe(
       [
-        'answers:',
+        'yanıtlar:',
         '- Full recon: dsquares.com + all mazaya* apexes + pivots',
         '  Confirming scope — I want to make sure I test the right surface. Which of these matches the engagement?',
         '- Active web vuln hunt',

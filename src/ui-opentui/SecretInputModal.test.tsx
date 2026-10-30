@@ -82,9 +82,9 @@ describe('SecretInputModal rendering', () => {
     expect(frame).toContain('Enter your API key');
     expect(frame).toContain('Env  GEMINI_API_KEY');
     expect(frame).toContain('AIza…');
-    expect(frame).toContain('Enter confirm');
+    expect(frame).toContain('Enter onayla');
     expect(frame).not.toContain('Enter test');
-    expect(frame).toContain('Esc cancel');
+    expect(frame).toContain('Esc iptal');
   });
 });
 

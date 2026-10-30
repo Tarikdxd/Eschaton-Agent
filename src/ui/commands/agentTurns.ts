@@ -9,7 +9,7 @@ export function handleCompact(ctx: SlashContext): void {
   if (ctx.agent.isRunning()) {
     ctx.dispatch({
       type: 'append',
-      entry: { kind: 'error', text: 'compact: a turn is already running' },
+      entry: { kind: 'error', text: 'compact: zaten çalışan bir tur var' },
     });
     return;
   }
@@ -20,7 +20,7 @@ export function handleNext(ctx: SlashContext): void {
   if (ctx.agent.isRunning()) {
     ctx.dispatch({
       type: 'append',
-      entry: { kind: 'error', text: 'next: a turn is already running' },
+      entry: { kind: 'error', text: 'next: zaten çalışan bir tur var' },
     });
     return;
   }
@@ -30,7 +30,7 @@ export function handleNext(ctx: SlashContext): void {
     .then((coverageContext) =>
       ctx.runAgentTurn(buildCoverageNextPrompt(objective, coverageContext), {
         transcriptUserText: objective ? `/next ${objective}` : '/next',
-        systemText: 'coverage-driven next steps — tools disabled',
+        systemText: 'kapsam odaklı sonraki adımlar — araçlar devre dışı',
         // coverageContext folds in model-authored coverage notes, not literal
         // keyboard input — an @-token planted there via indirect prompt
         // injection must not get silently expanded into local file contents.
@@ -50,7 +50,7 @@ export function handlePlan(ctx: SlashContext): void {
   const prompt = buildPlanPrompt(objective);
   ctx.runAgentTurn(prompt, {
     transcriptUserText: objective ? `/plan ${objective}` : '/plan',
-    systemText: 'planning only — tools disabled',
+    systemText: 'yalnızca planlama — araçlar devre dışı',
     runOptions: { tools: false },
   });
 }

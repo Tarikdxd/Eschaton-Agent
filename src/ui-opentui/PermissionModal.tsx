@@ -50,10 +50,10 @@ function isShellTool(name: string): boolean {
 
 /** Human title for the permission card. */
 export function permissionTitle(tool: string): string {
-  if (isShellTool(tool)) return 'Shell command';
-  if (tool === 'http') return 'HTTP request';
-  if (tool === 'file_write' || tool === 'FileWriteTool') return 'Write file';
-  if (tool === 'file_edit' || tool === 'FileEditTool') return 'Edit file';
+  if (isShellTool(tool)) return 'Kabuk komutu';
+  if (tool === 'http') return 'HTTP isteği';
+  if (tool === 'file_write' || tool === 'FileWriteTool') return 'Dosya yaz';
+  if (tool === 'file_edit' || tool === 'FileEditTool') return 'Dosyayı düzenle';
   return displayToolName(tool);
 }
 
@@ -106,7 +106,7 @@ export function PermissionModal({
 
   const headline = permissionTitle(req.tool);
   const riskLine = shell
-    ? 'Runs on this machine. Review before allowing.'
+    ? 'Bu makinede çalışır. İzin vermeden önce incele.'
     : req.summary && req.summary !== commandBody
       ? req.summary
       : null;
@@ -133,7 +133,7 @@ export function PermissionModal({
       <box style={{ flexDirection: 'row' }}>
         <text fg={shell ? theme.warning : theme.brand} attributes={TextAttributes.BOLD}>
           {shell ? '⚠ ' : ''}
-          PERMISSION
+          İZİN
         </text>
         <text fg={theme.muted} attributes={TextAttributes.DIM}>
           {'  ·  '}
@@ -162,7 +162,7 @@ export function PermissionModal({
         >
           <box style={{ flexDirection: 'row' }}>
             <text fg={theme.muted} attributes={TextAttributes.DIM}>
-              {shell ? '$ command' : 'payload'}
+              {shell ? '$ komut' : 'içerik'}
             </text>
           </box>
           {detailView.lines.map((line, i) => (
@@ -211,17 +211,17 @@ export function PermissionModal({
           <span fg={theme.success} attributes={TextAttributes.BOLD}>
             [y]
           </span>
-          <span fg={theme.text}> once</span>
+          <span fg={theme.text}> bir kez</span>
           <span fg={theme.muted}>{'  '}</span>
           <span fg={theme.success} attributes={TextAttributes.BOLD}>
             [a]
           </span>
-          <span fg={theme.text}> session</span>
+          <span fg={theme.text}> oturum</span>
           <span fg={theme.muted}>{'  '}</span>
           <span fg={theme.error} attributes={TextAttributes.BOLD}>
             [n]
           </span>
-          <span fg={theme.text}> deny</span>
+          <span fg={theme.text}> reddet</span>
           <span fg={theme.muted} attributes={TextAttributes.DIM}>
             {'  ·  Esc'}
           </span>
@@ -280,9 +280,11 @@ export function formatDetail(
   const kept = physical.slice(0, contentLimit);
   const lineElided = Math.max(0, physical.length - contentLimit);
   const parts: string[] = [];
-  if (lineElided > 0) parts.push(`… ${lineElided} more line${lineElided === 1 ? '' : 's'}`);
+  if (lineElided > 0) parts.push(`… ${lineElided} satır daha`);
   if (charElided > 0) {
-    parts.push(lineElided > 0 ? `${charElided} chars cut` : `… truncated ${charElided} chars`);
+    parts.push(
+      lineElided > 0 ? `${charElided} karakter kesildi` : `… ${charElided} karakter kırpıldı`,
+    );
   }
   return { lines: kept, elided: parts.join(' · ') || null };
 }

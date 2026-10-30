@@ -217,7 +217,7 @@ export function ChatPane({
         {unseenBelow && showScrollCue ? (
           <box style={{ flexDirection: 'row' }}>
             <text fg={theme.focus} attributes={TextAttributes.BOLD}>
-              ↓ new
+              ↓ yeni
             </text>
           </box>
         ) : null}

@@ -57,7 +57,7 @@ export function SecretInputModal({ req }: { req: SecretInputRequest }) {
 
   const empty = value.length === 0;
   const display = empty ? req.placeholder || '' : maskSecret(value);
-  const footer = req.footer ?? 'type key · Enter confirm · Esc cancel';
+  const footer = req.footer ?? 'anahtarı yaz · Enter onayla · Esc iptal';
 
   return (
     <box
@@ -109,8 +109,8 @@ export function SecretInputModal({ req }: { req: SecretInputRequest }) {
       <box style={{ marginTop: 1, flexDirection: 'column' }}>
         <text fg={theme.muted} attributes={TextAttributes.DIM}>
           {value.length > 0
-            ? `${value.length} character${value.length === 1 ? '' : 's'} · masked`
-            : 'key is never echoed in full'}
+            ? `${value.length} karakter · maskeli`
+            : 'anahtar hiçbir zaman tam gösterilmez'}
         </text>
         <text fg={theme.muted} attributes={TextAttributes.DIM}>
           {footer}

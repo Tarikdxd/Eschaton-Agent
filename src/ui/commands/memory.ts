@@ -10,13 +10,16 @@ export function handleMemory(ctx: SlashContext): void {
   if (sub === 'clear') {
     confirmDestructive(
       ctx,
-      'Clear session memory?',
-      'This removes the current session checkpoint.',
+      'Oturum belleği temizlensin mi?',
+      'Bu, geçerli oturum kontrol noktasını kaldırır.',
       () =>
         void agent
           .clearMemory()
           .then(() =>
-            dispatch({ type: 'append', entry: { kind: 'system', text: 'session memory cleared' } }),
+            dispatch({
+              type: 'append',
+              entry: { kind: 'system', text: 'oturum belleği temizlendi' },
+            }),
           )
           .catch((err: unknown) =>
             dispatch({
@@ -30,7 +33,10 @@ export function handleMemory(ctx: SlashContext): void {
   if (sub === 'forget') {
     const query = rest.slice(1).join(' ').trim();
     if (!query) {
-      dispatch({ type: 'append', entry: { kind: 'error', text: 'usage: /memory forget <text>' } });
+      dispatch({
+        type: 'append',
+        entry: { kind: 'error', text: 'kullanım: /memory forget <text>' },
+      });
       return;
     }
     void agent
@@ -41,8 +47,8 @@ export function handleMemory(ctx: SlashContext): void {
           entry: {
             kind: 'system',
             text: removed.length
-              ? `forgot ${removed.length} item${removed.length === 1 ? '' : 's'}:\n${removed.map((r) => `- ${r}`).join('\n')}`
-              : `no memory items matched "${query}"`,
+              ? `${removed.length} öğe unutuldu:\n${removed.map((r) => `- ${r}`).join('\n')}`
+              : `"${query}" ile eşleşen bellek öğesi yok`,
           },
         }),
       )
@@ -59,7 +65,7 @@ export function handleMemory(ctx: SlashContext): void {
     if (!text) {
       dispatch({
         type: 'append',
-        entry: { kind: 'error', text: 'usage: /memory add <text>  (or use #<text>)' },
+        entry: { kind: 'error', text: 'kullanım: /memory add <text>  (veya #<text> kullanın)' },
       });
       return;
     }
@@ -69,14 +75,14 @@ export function handleMemory(ctx: SlashContext): void {
         dispatch({
           type: 'append',
           entry: fact
-            ? { kind: 'system', text: `remembered (${fact.scope}/${fact.type}): ${fact.name}` }
-            : { kind: 'error', text: 'memory not saved' },
+            ? { kind: 'system', text: `hatırlandı (${fact.scope}/${fact.type}): ${fact.name}` }
+            : { kind: 'error', text: 'bellek kaydedilmedi' },
         }),
       )
       .catch((err: unknown) =>
         dispatch({
           type: 'append',
-          entry: { kind: 'error', text: `memory save failed: ${String(err)}` },
+          entry: { kind: 'error', text: `bellek kaydı başarısız: ${String(err)}` },
         }),
       );
     return;
@@ -88,8 +94,8 @@ export function handleMemory(ctx: SlashContext): void {
       entry: {
         kind: 'system',
         text: facts.length
-          ? `Saved memory (${facts.length}):\n${facts.map((f) => `- [${f.type}] ${f.name} — ${f.description}`).join('\n')}`
-          : 'no saved memory yet — add one with #<text> or /memory add <text>',
+          ? `Kayıtlı bellek (${facts.length}):\n${facts.map((f) => `- [${f.type}] ${f.name} — ${f.description}`).join('\n')}`
+          : 'henüz kayıtlı bellek yok — #<text> veya /memory add <text> ile ekleyin',
       },
     });
     return;
@@ -107,7 +113,7 @@ export function handleMemory(ctx: SlashContext): void {
           type: 'append',
           entry: {
             kind: 'error',
-            text: `unknown scope "${rawScope}" — use /memory intel clear [project|personal|all]`,
+            text: `bilinmeyen kapsam "${rawScope}" — /memory intel clear [project|personal|all] kullanın`,
           },
         });
         return;
@@ -115,13 +121,13 @@ export function handleMemory(ctx: SlashContext): void {
       const which = rawScope as 'project' | 'personal' | 'all';
       confirmDestructive(
         ctx,
-        `Clear ${which} intelligence?`,
-        'Learned findings will be permanently removed.',
+        `İstihbarat temizlensin mi (${which})?`,
+        'Öğrenilen bulgular kalıcı olarak kaldırılacak.',
         () =>
           void agent.clearIntelligence(which).then(() =>
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: `intelligence cleared (${which})` },
+              entry: { kind: 'system', text: `istihbarat temizlendi (${which})` },
             }),
           ),
       );
@@ -133,14 +139,17 @@ export function handleMemory(ctx: SlashContext): void {
         type: 'append',
         entry: {
           kind: 'system',
-          text: `Intelligence (learned scenarios) — project: ${s.project} · personal: ${s.personal}\n(auto-capped + pruned to most recent per scope; use /memory intel clear [project|personal|all] to wipe)`,
+          text: `İstihbarat (öğrenilen senaryolar) — project: ${s.project} · personal: ${s.personal}\n(otomatik sınırlandırılır + kapsam başına en yenilere budanır; silmek için /memory intel clear [project|personal|all] kullanın)`,
         },
       });
       return;
     }
     dispatch({
       type: 'append',
-      entry: { kind: 'error', text: 'usage: /memory intel [stats|clear [project|personal|all]]' },
+      entry: {
+        kind: 'error',
+        text: 'kullanım: /memory intel [stats|clear [project|personal|all]]',
+      },
     });
     return;
   }
@@ -151,8 +160,8 @@ export function handleMemory(ctx: SlashContext): void {
       entry: {
         kind: 'system',
         text: providerName
-          ? `External memory provider: ${providerName} (active alongside built-in memory)`
-          : 'No external memory provider active. Set memory_provider in ~/.eschaton/config.json (currently: "sqlite" or "off").',
+          ? `Harici bellek sağlayıcısı: ${providerName} (yerleşik bellekle birlikte etkin)`
+          : 'Etkin harici bellek sağlayıcısı yok. ~/.eschaton/config.json içinde memory_provider ayarlayın (geçerli değerler: "sqlite" veya "off").',
       },
     });
     return;
@@ -160,8 +169,8 @@ export function handleMemory(ctx: SlashContext): void {
   // Default view: durable curated facts first, then the session checkpoint.
   const facts = agent.listCuratedMemory();
   const curated = facts.length
-    ? `Saved memory (${facts.length}):\n${facts.map((f) => `- [${f.type}] ${f.name} — ${f.description}`).join('\n')}`
-    : 'No saved memory yet. Add one with #<text> or /memory add <text>.';
+    ? `Kayıtlı bellek (${facts.length}):\n${facts.map((f) => `- [${f.type}] ${f.name} — ${f.description}`).join('\n')}`
+    : 'Henüz kayıtlı bellek yok. #<text> veya /memory add <text> ile bir tane ekleyin.';
   dispatch({
     type: 'append',
     entry: { kind: 'system', text: `${curated}\n\n${agent.formatMemory()}` },
@@ -174,13 +183,16 @@ export function handleUser(ctx: SlashContext): void {
   if (sub === 'clear') {
     confirmDestructive(
       ctx,
-      'Clear user profile?',
-      'This removes all saved profile notes.',
+      'Kullanıcı profili temizlensin mi?',
+      'Bu, kayıtlı tüm profil notlarını kaldırır.',
       () =>
         void agent
           .clearUserProfile()
           .then(() =>
-            dispatch({ type: 'append', entry: { kind: 'system', text: 'user profile cleared' } }),
+            dispatch({
+              type: 'append',
+              entry: { kind: 'system', text: 'kullanıcı profili temizlendi' },
+            }),
           )
           .catch((err: unknown) =>
             dispatch({
@@ -194,7 +206,7 @@ export function handleUser(ctx: SlashContext): void {
   if (sub === 'add') {
     const text = rest.slice(1).join(' ').trim();
     if (!text) {
-      dispatch({ type: 'append', entry: { kind: 'error', text: 'usage: /user add <text>' } });
+      dispatch({ type: 'append', entry: { kind: 'error', text: 'kullanım: /user add <text>' } });
       return;
     }
     // addUserProfileNote() itself has no isRunning guard (the
@@ -204,7 +216,10 @@ export function handleUser(ctx: SlashContext): void {
     if (agent.isRunning()) {
       dispatch({
         type: 'append',
-        entry: { kind: 'error', text: '/user add: a turn is already running — try again after' },
+        entry: {
+          kind: 'error',
+          text: '/user add: zaten çalışan bir tur var — sonra tekrar deneyin',
+        },
       });
       return;
     }
@@ -213,7 +228,7 @@ export function handleUser(ctx: SlashContext): void {
       .then(() =>
         dispatch({
           type: 'append',
-          entry: { kind: 'system', text: `saved to user profile: ${text}` },
+          entry: { kind: 'system', text: `kullanıcı profiline kaydedildi: ${text}` },
         }),
       )
       .catch((err: unknown) =>
@@ -227,8 +242,8 @@ export function handleUser(ctx: SlashContext): void {
     entry: {
       kind: 'system',
       text: profile
-        ? `What the agent has learned about you:\n${profile}`
-        : 'Nothing saved yet — the agent learns this over time, or add one now with /user add <text>.',
+        ? `Aracın senin hakkında öğrendikleri:\n${profile}`
+        : 'Henüz bir şey kaydedilmedi — araç bunu zamanla öğrenir veya şimdi /user add <text> ile ekleyin.',
     },
   });
 }

@@ -25,7 +25,7 @@ describe('state.reducer tool-call preview', () => {
     const last = out.transcript[out.transcript.length - 1];
     expect(last?.kind).toBe('tool-call');
     expect(last?.text).not.toContain('\\n');
-    expect(last?.text).toContain('Shell · Run script');
+    expect(last?.text).toContain('Kabuk · Betik çalıştır');
     expect(last?.text).toContain('python3');
   });
 
@@ -47,7 +47,7 @@ describe('state.reducer tool-call preview', () => {
     expect(last?.text).toMatch(/…$/);
   });
 
-  it('shows Grok-style Shell · title + $ command, not the JSON envelope', () => {
+  it('shows Grok-style Kabuk · title + $ command, not the JSON envelope', () => {
     const out = reducer(seed(), {
       type: 'agent-event',
       event: {
@@ -59,7 +59,7 @@ describe('state.reducer tool-call preview', () => {
       },
     });
     const last = out.transcript.at(-1);
-    expect(last?.text).toBe(['Shell · HTTP request', '$ curl -ksS https://example.com'].join('\n'));
+    expect(last?.text).toBe(['Kabuk · HTTP isteği', '$ curl -ksS https://example.com'].join('\n'));
     expect(last?.prefix).toBe('⏺ ');
     expect(last?.text).not.toContain('{"command"');
   });
@@ -76,11 +76,11 @@ describe('state.reducer tool-call preview', () => {
       },
     });
     const last = out.transcript.at(-1);
-    expect(last?.text).toBe(['Bash · Create directory', '$ mkdir -p recon/gobus.net'].join('\n'));
+    expect(last?.text).toBe(['Bash · Dizin oluştur', '$ mkdir -p recon/gobus.net'].join('\n'));
     expect(last?.prefix).toBe('⏺ ');
   });
 
-  it('renders echo one-liners as Shell · Print text with truncated $ command', () => {
+  it('echo tek satırlarını kesik $ komutuyla Kabuk · Metin yazdır olarak gösterir', () => {
     const command =
       'echo "<?php system(\'id\'); ?>" > /tmp/test.php && curl -sS -X POST "https://ptl-example.libcurl.so/" -F "file=@/tmp/test.php"';
     const out = reducer(seed(), {
@@ -94,7 +94,7 @@ describe('state.reducer tool-call preview', () => {
       },
     });
     const last = out.transcript.at(-1);
-    expect(last?.text.startsWith('Shell · Print text\n$ ')).toBe(true);
+    expect(last?.text.startsWith('Kabuk · Metin yazdır\n$ ')).toBe(true);
     expect(last?.text).toContain('$ echo');
     // Long command is one-line truncated.
     expect(last?.text.split('\n')).toHaveLength(2);
@@ -120,7 +120,7 @@ describe('state.reducer tool-call preview', () => {
     const last = out.transcript.at(-1);
     expect(last?.text).toBe(
       [
-        'Shell · Check for Laravel debug mode',
+        'Kabuk · Check for Laravel debug mode',
         '$ curl -s "https://egyptianclothingbank.org/donor/login" -X POST',
       ].join('\n'),
     );
@@ -143,7 +143,7 @@ describe('state.reducer tool-call preview', () => {
     const last = out.transcript.at(-1);
     expect(last?.text).toBe(
       [
-        'Bash · HTTP request',
+        'Bash · HTTP isteği',
         '$ curl -fsS --max-time 30 -H \'Accept: application/json\' "https://crt.sh/?q=%25.egyptianclothingbank.org&output=json" 2>/de…',
       ].join('\n'),
     );
@@ -171,11 +171,11 @@ describe('state.reducer tool-call preview', () => {
     const last = out.transcript.at(-1);
     expect(last?.text).toBe(
       [
-        'Shell · Map the entire /api/v2/loyalty/ tree by trying every plausible single-se…',
+        'Kabuk · Map the entire /api/v2/loyalty/ tree by trying every plausible single-se…',
         '$ TARGET="https://loyaltycoreapi-mazaya.dsquares.com" && for r in members cards rewards vouchers transactions offers balan…',
       ].join('\n'),
     );
-    expect(last?.text).not.toContain('Shell · Run TARGET');
+    expect(last?.text).not.toContain('Kabuk · Run TARGET');
   });
 
   it('uses the real command after leading env assignments for long one-liners', () => {
@@ -192,18 +192,18 @@ describe('state.reducer tool-call preview', () => {
       },
     });
     const last = out.transcript.at(-1);
-    expect(last?.text).toContain('Shell · HTTP request');
+    expect(last?.text).toContain('Kabuk · HTTP isteği');
     expect(last?.text).not.toContain('Run TARGET');
   });
 
   it.each([
-    ['mkdir -p recon/gobus.net && touch recon/gobus.net/notes.txt', 'Create directory'],
-    ['rg -n "Authorization" src README.md package.json '.repeat(4), 'Search files'],
-    ['find . -type f -name "*.ts" -maxdepth 4 '.repeat(4), 'Find files'],
-    ['jq -r ".items[].name" response.json '.repeat(5), 'Process text'],
-    ['python3 - <<PY\nprint("hello")\nPY', 'Run script'],
-    ['npm run test -- --runInBand '.repeat(5), 'Run package task'],
-    ['git status --short --branch && git diff --stat '.repeat(4), 'Git command'],
+    ['mkdir -p recon/gobus.net && touch recon/gobus.net/notes.txt', 'Dizin oluştur'],
+    ['rg -n "Authorization" src README.md package.json '.repeat(4), 'Dosyalarda ara'],
+    ['find . -type f -name "*.ts" -maxdepth 4 '.repeat(4), 'Dosya bul'],
+    ['jq -r ".items[].name" response.json '.repeat(5), 'Metni işle'],
+    ['python3 - <<PY\nprint("hello")\nPY', 'Betik çalıştır'],
+    ['npm run test -- --runInBand '.repeat(5), 'Paket görevini çalıştır'],
+    ['git status --short --branch && git diff --stat '.repeat(4), 'Git komutu'],
   ])('renders long shell command "%s" as %s', (command, title) => {
     const out = reducer(seed(), {
       type: 'agent-event',
@@ -216,7 +216,7 @@ describe('state.reducer tool-call preview', () => {
       },
     });
     const last = out.transcript.at(-1);
-    expect(last?.text).toContain(`Shell · ${title}`);
+    expect(last?.text).toContain(`Kabuk · ${title}`);
     expect(last?.text).toContain('\n$ ');
   });
 
@@ -294,7 +294,7 @@ describe('state.reducer tool-call preview', () => {
       },
     });
     expect(scope.transcript.at(-1)?.text).toBe(
-      ['Scope · add', '│ testaspnet.vulnweb.com'].join('\n'),
+      ['Kapsam · add', '│ testaspnet.vulnweb.com'].join('\n'),
     );
     expect(scope.transcript.at(-1)?.prefix).toBe('⏺ ');
 
@@ -322,7 +322,7 @@ describe('state.reducer tool-call preview', () => {
         argsJSON: JSON.stringify({ name: 'webvuln', fork: true }),
       },
     });
-    expect(skill.transcript.at(-1)?.text).toBe('Skill · webvuln · forked');
+    expect(skill.transcript.at(-1)?.text).toBe('Beceri · webvuln · forked');
 
     const read = reducer(seed(), {
       type: 'agent-event',
@@ -334,7 +334,7 @@ describe('state.reducer tool-call preview', () => {
         argsJSON: JSON.stringify({ path: 'src/cli/index.ts' }),
       },
     });
-    expect(read.transcript.at(-1)?.text).toBe(['Read · file', '│ src/cli/index.ts'].join('\n'));
+    expect(read.transcript.at(-1)?.text).toBe(['Oku · file', '│ src/cli/index.ts'].join('\n'));
   });
 
   it('renders the confirm_finding result as a quiet saved-path note', () => {
@@ -380,7 +380,7 @@ describe('state.reducer tool-call preview', () => {
     });
     const last = out.transcript.at(-1);
     expect(last?.text).toBe(
-      'Ask User · Scope · 1 question · Confirming scope — I want to make sure I test the right surface. Which of these matches the engagem…',
+      'Sor · Scope · 1 soru · Confirming scope — I want to make sure I test the right surface. Which of these matches the engagement?',
     );
     expect(last?.text).not.toContain('"options"');
   });
@@ -400,7 +400,7 @@ describe('state.reducer tool-call preview', () => {
     const last = out.transcript[out.transcript.length - 1];
     // Title line + single $ command line (newlines flattened in the command).
     expect(last?.text.split('\n')).toHaveLength(2);
-    expect(last?.text).toContain('Shell ·');
+    expect(last?.text).toContain('Kabuk ·');
     expect(last?.text).toContain('$ printf line1 line2 col');
     expect(last?.text).not.toContain('\t');
   });
@@ -657,8 +657,8 @@ describe('state.reducer tool-result body', () => {
     const last = out.transcript.at(-1);
     expect(last?.text).toBe(
       [
-        '[ok] Ask User (15742ms)',
-        'answers:',
+        '[ok] Kullanıcıya Sor (15742ms)',
+        'yanıtlar:',
         '- Full recon: dsquares.com + all mazaya* apexes + pivots',
         '  Confirming scope — I want to make sure I test the right surface. Which of these matches the engagement?',
         '- Active web vuln hunt',
@@ -758,7 +758,7 @@ describe('collapseAssistantProse', () => {
     ].join('\n');
     const c = collapseAssistantProse(body);
     expect(c.collapsible).toBe(true);
-    expect(c.preview).toContain('click to expand');
+    expect(c.preview).toContain('genişletmek için tıkla');
     expect(c.preview.length).toBeLessThan(c.full.length);
     expect(c.full).toContain('PoC: upload pwn.php');
   });
@@ -776,7 +776,7 @@ describe('state.reducer collapsible assistant text', () => {
     const last = out.transcript.at(-1);
     expect(last?.kind).toBe('assistant');
     expect(last?.collapsible).toBe(true);
-    expect(last?.text).toContain('click to expand');
+    expect(last?.text).toContain('genişletmek için tıkla');
     expect(last?.fullText).toContain('Paragraph 11');
   });
 
@@ -820,7 +820,7 @@ describe('state.reducer expandable tool-result', () => {
     const last = withResult().transcript.at(-1);
     expect(last?.collapsible).toBe(true);
     expect(last?.expanded).toBeUndefined();
-    expect(strip(last?.text ?? '')).toContain('click or Ctrl-O to expand');
+    expect(strip(last?.text ?? '')).toContain('genişletmek için tıkla veya Ctrl-O');
     expect(strip(last?.text ?? '')).not.toContain('"type"');
     // Collapsed preview is far shorter than the retained full body.
     expect(last?.text.length).toBeLessThan((last?.fullText ?? '').length);
@@ -868,7 +868,7 @@ describe('formatCompactEvent', () => {
       tokensAfter: 9393,
       memoryItems: 0,
     });
-    expect(text).toBe('Context compacted · ~9423 → ~9393 tokens');
+    expect(text).toBe('Bağlam sıkıştırıldı · ~9423 → ~9393 token');
     expect(text).not.toContain('memory');
     expect(text).not.toContain('\n');
     expect(text).not.toContain('triggered');
@@ -881,13 +881,13 @@ describe('formatCompactEvent', () => {
       summary: '## Current objective\n- long prose that used to flood the UI\n'.repeat(20),
       memoryItems: 3,
     });
-    expect(text).toBe('Context compacted · 3 memory');
+    expect(text).toBe('Bağlam sıkıştırıldı · 3 bellek');
     expect(text).not.toContain('Current objective');
   });
 
   it('handles nothing to compact', () => {
     expect(formatCompactEvent({ type: 'compact', summary: 'nothing to compact' })).toBe(
-      'Nothing to compact',
+      'Sıkıştırılacak bir şey yok',
     );
   });
 });

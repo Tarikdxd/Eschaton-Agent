@@ -59,15 +59,15 @@ export function confirmDestructive(
 ): void {
   const req: AskRequest = {
     question: {
-      header: 'Confirm action',
+      header: 'İşlemi onayla',
       question,
       subtitle: detail,
-      footer: '↑↓ navigate · Enter select · Esc cancel',
-      options: [{ label: 'Cancel' }, { label: 'Continue' }],
+      footer: '↑↓ gezin · Enter seç · Esc iptal',
+      options: [{ label: 'İptal' }, { label: 'Devam' }],
     },
     resolve: (picked) => {
       ctx.dispatch({ type: 'set-ask', req: null });
-      if (picked === 'Continue') onConfirm();
+      if (picked === 'Devam') onConfirm();
     },
     reject: () => ctx.dispatch({ type: 'set-ask', req: null }),
   };

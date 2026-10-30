@@ -127,15 +127,15 @@ export function SkillsModal({ agent, persistDisabledSkills, onClose }: SkillsMod
       >
         <box style={{ flexDirection: 'row' }}>
           <text fg={theme.focus} attributes={TextAttributes.BOLD}>
-            SKILLS
+            BECERİLER
           </text>
         </box>
         <box style={{ flexDirection: 'row' }}>
-          <text fg={theme.text}>No skills are loaded.</text>
+          <text fg={theme.text}>Yüklü beceri yok.</text>
         </box>
         <box style={{ flexDirection: 'row', marginTop: 1 }}>
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            Esc · q to close
+            Esc · q kapatır
           </text>
         </box>
       </box>
@@ -158,21 +158,21 @@ export function SkillsModal({ agent, persistDisabledSkills, onClose }: SkillsMod
     >
       <box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
         <text fg={theme.focus} attributes={TextAttributes.BOLD}>
-          SKILLS
+          BECERİLER
         </text>
         <text fg={theme.muted} attributes={TextAttributes.DIM}>
-          {enabledCount}/{total} enabled
+          {enabledCount}/{total} etkin
         </text>
       </box>
       <box style={{ flexDirection: 'row' }}>
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Toggle skills available to the agent
+          Ajanın kullanabileceği becerileri aç/kapat
         </text>
       </box>
       {win.hiddenAbove > 0 ? (
         <box style={{ flexDirection: 'row', marginTop: 1 }}>
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            ··· {win.hiddenAbove} more above ···
+            ··· yukarıda {win.hiddenAbove} tane daha ···
           </text>
         </box>
       ) : (
@@ -184,7 +184,7 @@ export function SkillsModal({ agent, persistDisabledSkills, onClose }: SkillsMod
           const selected = i === safeIdx;
           const disabled = agent.skills.isDisabled(s.name);
           const busy = busyName === s.name || busyName === '*';
-          const stateLabel = busy ? '…    ' : disabled ? '[off]' : '[on] ';
+          const stateLabel = busy ? '…       ' : disabled ? '[kapalı]' : '[açık]  ';
           const stateColor = busy ? theme.warning : disabled ? theme.muted : theme.success;
           return (
             <box key={s.name} style={{ flexDirection: 'row' }}>
@@ -207,18 +207,18 @@ export function SkillsModal({ agent, persistDisabledSkills, onClose }: SkillsMod
       {win.hiddenBelow > 0 ? (
         <box style={{ flexDirection: 'row' }}>
           <text fg={theme.muted} attributes={TextAttributes.DIM}>
-            ··· {win.hiddenBelow} more below ···
+            ··· aşağıda {win.hiddenBelow} tane daha ···
           </text>
         </box>
       ) : null}
       {error ? (
         <box style={{ flexDirection: 'row', marginTop: 1 }}>
-          <text fg={theme.error}>error: {error}</text>
+          <text fg={theme.error}>hata: {error}</text>
         </box>
       ) : null}
       <box style={{ flexDirection: 'row', marginTop: 1 }}>
         <text fg={theme.muted} attributes={TextAttributes.DIM}>
-          ↑↓ select · Space/Enter toggle · a enable all · d disable all · Esc/q close
+          ↑↓ seç · Space/Enter aç/kapat · a tümünü aç · d tümünü kapat · Esc/q kapat
         </text>
       </box>
     </box>

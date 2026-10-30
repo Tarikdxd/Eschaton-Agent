@@ -22,7 +22,7 @@ describe('Input', () => {
     expect(frame).toMatch(/╭|┌/);
     expect(frame).toMatch(/╰|└/);
     expect(frame).toContain('❯');
-    expect(frame).toMatch(/Ask anything|commands/i);
+    expect(frame).toMatch(/Herhangi bir şey sor|komutlar/i);
     expect(frame).not.toContain('enter send');
     expect(frame).not.toContain('ctrl+j');
   });

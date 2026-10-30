@@ -191,7 +191,7 @@ export function handleSlash(
       // acting on text the user believed was a client-side command.
       dispatch({
         type: 'append',
-        entry: { kind: 'error', text: `unknown command: ${cmd} (try /help)` },
+        entry: { kind: 'error', text: `bilinmeyen komut: ${cmd} (/help deneyin)` },
       });
       return true;
     }

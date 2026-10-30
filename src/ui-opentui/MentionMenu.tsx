@@ -17,15 +17,15 @@ export function MentionMenu({ cwd, candidates, selected }: MentionMenuProps) {
   if (candidates.length === 0) return null;
   const w = computeMenuWindow(candidates.length, selected);
   const visible = candidates.slice(w.start, w.end);
-  const pathLabel = cwd ? `@ ${cwd}` : '@ files';
+  const pathLabel = cwd ? `@ ${cwd}` : '@ dosyalar';
 
   return (
     <MenuFrame
-      header="Files"
+      header="Dosyalar"
       subtitle={pathLabel}
       hiddenAbove={w.hiddenAbove}
       hiddenBelow={w.hiddenBelow}
-      footer="↑↓ navigate · Enter insert · Esc dismiss"
+      footer="↑↓ gezin · Enter ekle · Esc kapat"
     >
       {visible.map((c, idx) => {
         const absoluteIdx = w.start + idx;

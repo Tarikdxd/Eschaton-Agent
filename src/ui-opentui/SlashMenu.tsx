@@ -19,11 +19,11 @@ export function SlashMenu({ items, selected }: SlashMenuProps) {
 
   return (
     <MenuFrame
-      header="Commands"
-      subtitle={`${items.length} match${items.length === 1 ? '' : 'es'}`}
+      header="Komutlar"
+      subtitle={`${items.length} eşleşme`}
       hiddenAbove={w.hiddenAbove}
       hiddenBelow={w.hiddenBelow}
-      footer="↑↓ navigate · Enter select · Esc dismiss"
+      footer="↑↓ gezin · Enter seç · Esc kapat"
     >
       {visible.map((item, idx) => {
         const absoluteIdx = w.start + idx;

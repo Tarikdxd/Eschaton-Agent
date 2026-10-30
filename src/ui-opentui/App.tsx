@@ -246,7 +246,7 @@ export function App({
             autoContinue = true;
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'Continuing…' },
+              entry: { kind: 'system', text: 'Devam ediliyor…' },
             });
           }
           return;
@@ -348,7 +348,7 @@ export function App({
       if (snapshotSaving.current) return;
       snapshotSaving.current = true;
       void agent
-        .saveContextSnapshot('periodic 5 minute snapshot')
+        .saveContextSnapshot('periyodik 5 dakikalık anlık görüntü')
         .then((path) => {
           if (path) sessionDebug?.write('context_snapshot', { path });
         })
@@ -437,7 +437,7 @@ export function App({
             type: 'append',
             entry: {
               kind: 'system',
-              text: 'usage: #<text to remember>  (or #!<text> for personal)',
+              text: 'kullanım: #<hatırlanacak metin>  (kişisel için #!<metin>)',
             },
           });
           return;
@@ -448,14 +448,17 @@ export function App({
             dispatch({
               type: 'append',
               entry: fact
-                ? { kind: 'system', text: `remembered (${fact.scope}/${fact.type}): ${fact.name}` }
-                : { kind: 'error', text: 'memory not saved (empty after redaction or no store)' },
+                ? { kind: 'system', text: `hatırlandı (${fact.scope}/${fact.type}): ${fact.name}` }
+                : {
+                    kind: 'error',
+                    text: 'bellek kaydedilmedi (redaksiyondan sonra boş veya depo yok)',
+                  },
             }),
           )
           .catch((err: unknown) =>
             dispatch({
               type: 'append',
-              entry: { kind: 'error', text: `memory save failed: ${String(err)}` },
+              entry: { kind: 'error', text: `bellek kaydı başarısız: ${String(err)}` },
             }),
           );
         return;
@@ -607,7 +610,9 @@ export function App({
           type: 'append',
           entry: {
             kind: 'system',
-            text: ok ? notice : 'Copy failed — select text and use Ctrl+Y, or copy from the host',
+            text: ok
+              ? notice
+              : 'Kopyalama başarısız — metni seçip Ctrl+Y kullan veya ana makineden kopyala',
           },
         });
       });
@@ -658,9 +663,12 @@ export function App({
     if ((e.meta && e.name === 'c') || (e.ctrl && e.name === 'y')) {
       const text = lastSelectionRef.current || lastCopyableOutput(state.transcript) || inputValue;
       if (text) {
-        copyToClipboard(text, `Copied ${text.length} chars`);
+        copyToClipboard(text, `${text.length} karakter kopyalandı`);
       } else {
-        dispatch({ type: 'append', entry: { kind: 'system', text: 'Nothing to copy yet' } });
+        dispatch({
+          type: 'append',
+          entry: { kind: 'system', text: 'Henüz kopyalanacak bir şey yok' },
+        });
       }
       return;
     }
@@ -1053,8 +1061,8 @@ export function App({
               hint={
                 state.busy
                   ? queueLen > 0
-                    ? `${queueLen} queued · Esc to cancel`
-                    : 'Esc to cancel'
+                    ? `${queueLen} sırada · Esc iptal eder`
+                    : 'Esc iptal eder'
                   : undefined
               }
             />
@@ -1093,7 +1101,7 @@ function transcriptEntryMatchesFilter(entry: TranscriptEntry, filter: Transcript
       if (entry.kind === 'tool-result' && entry.text.startsWith('[ok]')) return false;
       return entry.kind !== 'decision';
     case 'findings':
-      return entry.kind === 'finding' || entry.text.includes('Confirmed Finding');
+      return entry.kind === 'finding' || entry.text.includes('Doğrulanmış Bulgu');
     case 'errors':
       return entry.kind === 'error' || entry.text.includes('[error]');
   }

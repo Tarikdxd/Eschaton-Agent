@@ -17,7 +17,7 @@ export function handleTarget(ctx: SlashContext): void {
   if (!u) {
     void agent
       .clearTarget()
-      .then(() => dispatch({ type: 'append', entry: { kind: 'system', text: 'target cleared' } }))
+      .then(() => dispatch({ type: 'append', entry: { kind: 'system', text: 'hedef temizlendi' } }))
       .catch((err: unknown) =>
         dispatch({ type: 'append', entry: { kind: 'error', text: `/target: ${String(err)}` } }),
       );
@@ -25,7 +25,10 @@ export function handleTarget(ctx: SlashContext): void {
     void agent
       .setTargetBaseURL(u)
       .then(() =>
-        dispatch({ type: 'append', entry: { kind: 'system', text: `target set to ${u}` } }),
+        dispatch({
+          type: 'append',
+          entry: { kind: 'system', text: `hedef ${u} olarak ayarlandı` },
+        }),
       )
       .catch((err: unknown) =>
         dispatch({ type: 'append', entry: { kind: 'error', text: `/target: ${String(err)}` } }),
@@ -54,9 +57,12 @@ export function handleMaxSteps(ctx: SlashContext): void {
   const n = Number.parseInt(rest[0] ?? '', 10);
   if (Number.isFinite(n) && n > 0) {
     agent.setMaxSteps(n);
-    dispatch({ type: 'append', entry: { kind: 'system', text: `max steps set to ${n}` } });
+    dispatch({
+      type: 'append',
+      entry: { kind: 'system', text: `maks adım ${n} olarak ayarlandı` },
+    });
   } else {
-    dispatch({ type: 'append', entry: { kind: 'error', text: 'usage: /maxsteps <n>' } });
+    dispatch({ type: 'append', entry: { kind: 'error', text: 'kullanım: /maxsteps <n>' } });
   }
 }
 
@@ -70,8 +76,8 @@ export function handleCompactModeToggle(ctx: SlashContext): void {
     entry: {
       kind: 'system',
       text: next
-        ? 'compact mode on — no blank line between transcript entries.'
-        : 'compact mode off — back to the default spacing.',
+        ? 'kompakt mod açık — döküm girdileri arasında boş satır yok.'
+        : 'kompakt mod kapalı — varsayılan aralığa dönüldü.',
     },
   });
 }
@@ -80,11 +86,11 @@ export function handleThinking(ctx: SlashContext): void {
   const { agent, rest, dispatch } = ctx;
   const v = (rest[0] ?? '').toLowerCase();
   if (v !== 'on' && v !== 'off') {
-    dispatch({ type: 'append', entry: { kind: 'error', text: 'usage: /thinking on|off' } });
+    dispatch({ type: 'append', entry: { kind: 'error', text: 'kullanım: /thinking on|off' } });
     return;
   }
   void agent.setThinkingEnabled(v === 'on');
-  dispatch({ type: 'append', entry: { kind: 'system', text: `thinking ${v}` } });
+  dispatch({ type: 'append', entry: { kind: 'system', text: `düşünme ${v}` } });
 }
 
 /**
@@ -99,7 +105,7 @@ export function handleConfig(ctx: SlashContext): void {
   const path = configPath();
 
   if (sub === 'path') {
-    dispatch({ type: 'append', entry: { kind: 'system', text: `config file: ${path}` } });
+    dispatch({ type: 'append', entry: { kind: 'system', text: `yapılandırma dosyası: ${path}` } });
     return;
   }
   if (sub === 'example') {
@@ -108,7 +114,7 @@ export function handleConfig(ctx: SlashContext): void {
       entry: {
         kind: 'system',
         text: [
-          'Example ~/.eschaton/config.json (JSONC comments OK on load):',
+          'Örnek ~/.eschaton/config.json (yüklerken JSONC yorumları kabul edilir):',
           '',
           EXAMPLE_CONFIG_JSON.trimEnd(),
         ].join('\n'),
@@ -119,7 +125,7 @@ export function handleConfig(ctx: SlashContext): void {
   if (sub !== 'show' && sub !== '') {
     dispatch({
       type: 'append',
-      entry: { kind: 'error', text: 'usage: /config [show|path|example]' },
+      entry: { kind: 'error', text: 'kullanım: /config [show|path|example]' },
     });
     return;
   }
@@ -131,7 +137,7 @@ export function handleConfig(ctx: SlashContext): void {
   try {
     load(); // validates the file is still parseable
   } catch (err) {
-    diskNote = `\n(on-disk file has a problem: ${(err as Error).message})`;
+    diskNote = `\n(diskteki dosyada bir sorun var: ${(err as Error).message})`;
   }
   const full = defaultConfig();
   full.backend = live.backend;
@@ -147,9 +153,9 @@ export function handleConfig(ctx: SlashContext): void {
     entry: {
       kind: 'system',
       text: [
-        `config file: ${path}`,
-        'edit with any editor; JSONC comments (// …) are accepted on load.',
-        'empty defaults are omitted when eschaton saves.',
+        `yapılandırma dosyası: ${path}`,
+        'herhangi bir düzenleyiciyle düzenleyin; JSONC yorumları (// …) yüklerken kabul edilir.',
+        'eschaton kaydederken boş varsayılanlar atlanır.',
         '',
         body,
         diskNote,

@@ -39,9 +39,9 @@ import type { Action } from '../state.js';
 import type { SlashContext } from './context.js';
 
 /** Sentinel option label for free-form model id entry in the picker. */
-export const CUSTOM_MODEL_OPTION = '✦ Enter custom model id…';
-const CUSTOM_OPENAI_SCHEME = 'Custom OpenAI scheme';
-const CUSTOM_ANTHROPIC_SCHEME = 'Custom Anthropic scheme';
+export const CUSTOM_MODEL_OPTION = '✦ Özel model kimliği gir…';
+const CUSTOM_OPENAI_SCHEME = 'Özel OpenAI düzeni';
+const CUSTOM_ANTHROPIC_SCHEME = 'Özel Anthropic düzeni';
 let modelLoadGeneration = 0;
 
 export function handleProvider(ctx: SlashContext): void {
@@ -149,23 +149,23 @@ async function promptCustomModelId(
   try {
     const id = (
       await promptSecret({
-        header: 'Custom model',
-        question: 'Enter a model id',
-        subtitle: 'Fine-tune · dated snapshot · proxy rename · any gateway id',
+        header: 'Özel model',
+        question: 'Model kimliği gir',
+        subtitle: 'Fine-tune · tarihli snapshot · proxy takma adı · herhangi bir ağ geçidi kimliği',
         placeholder: 'gpt-4.1 · claude-sonnet-5 · my-ft:abc',
-        footer: 'type id · Enter confirm · Esc cancel',
+        footer: 'kimlik yaz · Enter onayla · Esc iptal',
       })
     ).trim();
     if (!id) {
       dispatch({
         type: 'append',
-        entry: { kind: 'error', text: 'custom model id cannot be empty.' },
+        entry: { kind: 'error', text: 'özel model kimliği boş olamaz.' },
       });
       return '';
     }
     return id;
   } catch {
-    dispatch({ type: 'append', entry: { kind: 'system', text: 'custom model cancelled.' } });
+    dispatch({ type: 'append', entry: { kind: 'system', text: 'özel model iptal edildi.' } });
     return '';
   }
 }
@@ -204,7 +204,7 @@ function backendLabel(backend: Backend): string {
   }
 }
 
-const OPENCODE_MORE_LABEL = 'More providers…';
+const OPENCODE_MORE_LABEL = 'Diğer sağlayıcılar…';
 
 /** Open the backend picker. Re-uses the AskModal plumbing by synthesizing
  *  an AskRequest dispatched straight into pendingAsk — the modal's
@@ -237,14 +237,14 @@ function openProviderPicker(
     cur.backend === 'anthropic' && cur.baseURL !== '' && !cur.baseURL.includes('api.anthropic.com');
   const isCustomOpenAI = cur.backend === 'openai-compat';
   const activeName = backendLabel(cur.backend || 'ollama');
-  const activeModel = cur.model || '(no model)';
+  const activeModel = cur.model || '(model yok)';
 
   const req: AskRequest = {
     question: {
       header: 'Provider',
-      question: 'Select an LLM provider for this session',
+      question: 'Bu oturum için LLM sağlayıcısı seç',
       subtitle: `Active  ${activeName}  ·  ${activeModel}`,
-      footer: '↑↓ navigate · 1-9 jump · Enter select · Esc cancel',
+      footer: '↑↓ gezin · 1-9 atla · Enter seç · Esc iptal',
       options: [
         // —— Local ————————————————————————————————————————————————
         {
@@ -257,7 +257,7 @@ function openProviderPicker(
           group: 'Local',
           label: withCurrent('LM Studio', cur.backend === 'lmstudio'),
           badge: 'Local',
-          description: 'localhost · OpenAI-compatible',
+          description: 'localhost · OpenAI uyumlu',
         },
         // —— Hosted ——————————————————————————————————————————————
         {
@@ -288,13 +288,13 @@ function openProviderPicker(
           group: 'Hosted',
           label: withCurrent('Groq', cur.backend === 'groq'),
           badge: 'Cloud',
-          description: 'api.groq.com · fast inference',
+          description: 'api.groq.com · hızlı çıkarım',
         },
         {
           group: 'Hosted',
           label: withCurrent('OpenRouter', cur.backend === 'openrouter'),
           badge: 'Cloud',
-          description: 'openrouter.ai · multi-model router',
+          description: 'openrouter.ai · çok modelli yönlendirici',
         },
         {
           group: 'Hosted',
@@ -323,22 +323,22 @@ function openProviderPicker(
         },
         // —— Custom ——————————————————————————————————————————————
         {
-          group: 'Custom endpoint',
+          group: 'Özel uç nokta',
           label: withCurrent(CUSTOM_OPENAI_SCHEME, isCustomOpenAI),
           badge: 'Gateway',
-          description: 'Bearer · /chat/completions · any base URL',
+          description: 'Bearer · /chat/completions · herhangi bir taban URL',
         },
         {
-          group: 'Custom endpoint',
+          group: 'Özel uç nokta',
           label: withCurrent(CUSTOM_ANTHROPIC_SCHEME, isCustomAnthropic),
           badge: 'Gateway',
-          description: 'x-api-key · /messages · any base URL',
+          description: 'x-api-key · /messages · herhangi bir taban URL',
         },
         {
-          group: 'Custom endpoint',
+          group: 'Özel uç nokta',
           label: withCurrent('OpenAI-compatible', isCustomOpenAI && !!cur.baseURL && !!cur.apiKey),
           badge: 'Legacy',
-          description: 'use saved base URL + key from config',
+          description: 'kayıtlı taban URL + anahtarı yapılandırmadan kullan',
         },
       ],
     },
@@ -347,7 +347,7 @@ function openProviderPicker(
       // Strip " · current" suffix before matching.
       const name = picked.replace(/\s*·\s*current\s*$/i, '').trim();
       // Custom schemes first (longer labels), then hosted names.
-      if (name.startsWith(OPENCODE_MORE_LABEL) || name.startsWith('More providers')) {
+      if (name.startsWith(OPENCODE_MORE_LABEL) || name.startsWith('Diğer sağlayıcılar')) {
         openOpenCodeProviderPicker(dispatch, readConfig, applyProvider, promptSecret);
         return;
       }
@@ -404,15 +404,15 @@ function openProviderPicker(
       if (backend === 'openai' && (config.backend !== 'openai' || !config.apiKey)) {
         void promptSecret({
           header: 'OpenAI API',
-          question: 'Enter your API key',
-          subtitle: 'Env  OPENAI_API_KEY  ·  stored in ~/.eschaton/config.json',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  OPENAI_API_KEY  ·  ~/.eschaton/config.json içinde saklanır',
           placeholder: 'sk-…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'OpenAI API key cannot be empty.' },
+                entry: { kind: 'error', text: 'OpenAI API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -434,7 +434,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'OpenAI setup cancelled.' },
+              entry: { kind: 'system', text: 'OpenAI kurulumu iptal edildi.' },
             });
           });
         return;
@@ -442,15 +442,15 @@ function openProviderPicker(
       if (backend === 'kimi' && (config.backend !== 'kimi' || !config.apiKey)) {
         void promptSecret({
           header: 'Kimi API',
-          question: 'Enter your API key',
-          subtitle: 'Env  MOONSHOT_API_KEY / KIMI_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  MOONSHOT_API_KEY / KIMI_API_KEY',
           placeholder: 'sk-…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'Kimi API key cannot be empty.' },
+                entry: { kind: 'error', text: 'Kimi API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -472,7 +472,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'Kimi setup cancelled.' },
+              entry: { kind: 'system', text: 'Kimi kurulumu iptal edildi.' },
             });
           });
         return;
@@ -480,15 +480,15 @@ function openProviderPicker(
       if (backend === 'groq' && (config.backend !== 'groq' || !config.apiKey)) {
         void promptSecret({
           header: 'Groq API',
-          question: 'Enter your API key',
-          subtitle: 'Env  GROQ_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  GROQ_API_KEY',
           placeholder: 'gsk_…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'Groq API key cannot be empty.' },
+                entry: { kind: 'error', text: 'Groq API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -508,7 +508,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'Groq setup cancelled.' },
+              entry: { kind: 'system', text: 'Groq kurulumu iptal edildi.' },
             });
           });
         return;
@@ -516,15 +516,15 @@ function openProviderPicker(
       if (backend === 'gemini' && (config.backend !== 'gemini' || !config.apiKey)) {
         void promptSecret({
           header: 'Gemini API',
-          question: 'Enter your API key',
-          subtitle: 'Env  GEMINI_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  GEMINI_API_KEY',
           placeholder: 'AIza…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'Gemini API key cannot be empty.' },
+                entry: { kind: 'error', text: 'Gemini API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -544,7 +544,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'Gemini setup cancelled.' },
+              entry: { kind: 'system', text: 'Gemini kurulumu iptal edildi.' },
             });
           });
         return;
@@ -552,15 +552,15 @@ function openProviderPicker(
       if (backend === 'openrouter' && (config.backend !== 'openrouter' || !config.apiKey)) {
         void promptSecret({
           header: 'OpenRouter API',
-          question: 'Enter your API key',
-          subtitle: 'Env  OPENROUTER_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  OPENROUTER_API_KEY',
           placeholder: 'sk-or-…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'OpenRouter API key cannot be empty.' },
+                entry: { kind: 'error', text: 'OpenRouter API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -580,7 +580,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'OpenRouter setup cancelled.' },
+              entry: { kind: 'system', text: 'OpenRouter kurulumu iptal edildi.' },
             });
           });
         return;
@@ -588,15 +588,15 @@ function openProviderPicker(
       if (backend === 'deepseek' && (config.backend !== 'deepseek' || !config.apiKey)) {
         void promptSecret({
           header: 'DeepSeek API',
-          question: 'Enter your API key',
-          subtitle: 'Env  DEEPSEEK_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  DEEPSEEK_API_KEY',
           placeholder: 'sk-…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'DeepSeek API key cannot be empty.' },
+                entry: { kind: 'error', text: 'DeepSeek API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -616,7 +616,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'DeepSeek setup cancelled.' },
+              entry: { kind: 'system', text: 'DeepSeek kurulumu iptal edildi.' },
             });
           });
         return;
@@ -624,15 +624,15 @@ function openProviderPicker(
       if (backend === 'naraya' && (config.backend !== 'naraya' || !config.apiKey)) {
         void promptSecret({
           header: 'Naraya API',
-          question: 'Enter your API key',
-          subtitle: 'Env  NARAYA_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  NARAYA_API_KEY',
           placeholder: 'sk-nry-…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'Naraya API key cannot be empty.' },
+                entry: { kind: 'error', text: 'Naraya API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -654,7 +654,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'Naraya setup cancelled.' },
+              entry: { kind: 'system', text: 'Naraya kurulumu iptal edildi.' },
             });
           });
         return;
@@ -662,15 +662,15 @@ function openProviderPicker(
       if (backend === 'dahl' && (config.backend !== 'dahl' || !config.apiKey)) {
         void promptSecret({
           header: 'Dahl API',
-          question: 'Enter your API key',
-          subtitle: 'Env  DAHL_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  DAHL_API_KEY',
           placeholder: 'dahl_…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'Dahl API key cannot be empty.' },
+                entry: { kind: 'error', text: 'Dahl API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -692,7 +692,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'Dahl setup cancelled.' },
+              entry: { kind: 'system', text: 'Dahl kurulumu iptal edildi.' },
             });
           });
         return;
@@ -700,15 +700,15 @@ function openProviderPicker(
       if (backend === 'anthropic' && (config.backend !== 'anthropic' || !config.apiKey)) {
         void promptSecret({
           header: 'Claude API',
-          question: 'Enter your API key',
-          subtitle: 'Env  ANTHROPIC_API_KEY',
+          question: 'API anahtarını gir',
+          subtitle: 'Ortam  ANTHROPIC_API_KEY',
           placeholder: 'sk-ant-…',
         })
           .then((apiKey) => {
             if (!apiKey) {
               dispatch({
                 type: 'append',
-                entry: { kind: 'error', text: 'Anthropic API key cannot be empty.' },
+                entry: { kind: 'error', text: 'Anthropic API anahtarı boş olamaz.' },
               });
               return;
             }
@@ -728,7 +728,7 @@ function openProviderPicker(
           .catch(() => {
             dispatch({
               type: 'append',
-              entry: { kind: 'system', text: 'Claude setup cancelled.' },
+              entry: { kind: 'system', text: 'Claude kurulumu iptal edildi.' },
             });
           });
         return;
@@ -800,10 +800,10 @@ async function setupCustomScheme(
       (
         await promptSecret({
           header: `${schemeLabel}`,
-          question: 'Enter the API base URL',
-          subtitle: 'Include /v1 if the gateway requires it',
+          question: "API taban URL'sini gir",
+          subtitle: 'Ağ geçidi gerektiriyorsa /v1 ekle',
           placeholder: defaultBase,
-          footer: 'type URL · Enter confirm · Esc cancel',
+          footer: 'URL yaz · Enter onayla · Esc iptal',
         })
       ).trim() ||
       config.baseURL ||
@@ -811,23 +811,25 @@ async function setupCustomScheme(
     if (!baseURL) {
       dispatch({
         type: 'append',
-        entry: { kind: 'error', text: 'base URL cannot be empty.' },
+        entry: { kind: 'error', text: 'taban URL boş olamaz.' },
       });
       return;
     }
     const apiKey = (
       await promptSecret({
         header: `${schemeLabel} API`,
-        question: 'Enter your API key',
+        question: 'API anahtarını gir',
         subtitle:
-          scheme === 'anthropic' ? 'Sent as x-api-key header' : 'Sent as Authorization: Bearer',
+          scheme === 'anthropic'
+            ? 'x-api-key başlığı olarak gönderilir'
+            : 'Authorization: Bearer olarak gönderilir',
         placeholder: scheme === 'anthropic' ? 'sk-ant-…' : 'sk-…',
       })
     ).trim();
     if (!apiKey) {
       dispatch({
         type: 'append',
-        entry: { kind: 'error', text: 'API key cannot be empty.' },
+        entry: { kind: 'error', text: 'API anahtarı boş olamaz.' },
       });
       return;
     }
@@ -865,9 +867,9 @@ async function fetchAndPickModel(
       question: {
         header: 'Models',
         question: `Fetching models · ${backendLabel(backend)}`,
-        subtitle: 'The provider is responding…',
-        footer: 'Esc cancel',
-        options: [{ label: 'Loading model catalog…', disabled: true }],
+        subtitle: 'Sağlayıcı yanıt veriyor…',
+        footer: 'Esc iptal',
+        options: [{ label: 'Model kataloğu yükleniyor…', disabled: true }],
       },
       resolve: () => undefined,
       reject: () => {
@@ -917,7 +919,7 @@ async function fetchAndPickModel(
       group: 'Custom',
       label: CUSTOM_MODEL_OPTION,
       badge: 'Custom',
-      description: 'fine-tune · dated snapshot · proxy rename',
+      description: 'fine-tune · tarihli snapshot · proxy takma adı',
     },
   ];
   if (shown.length === 0 && !opts?.promptSecret) {
@@ -938,9 +940,9 @@ async function fetchAndPickModel(
         overflow > 0
           ? `Showing ${shown.length} of ${merged.length} · type /model <id> for unlisted`
           : merged.length === 0
-            ? 'No catalog models — enter a custom id'
+            ? 'Katalogda model yok — özel kimlik gir'
             : `${merged.length} available`,
-      footer: '↑↓ navigate · Enter select · Esc cancel',
+      footer: '↑↓ gezin · Enter seç · Esc iptal',
       options,
     },
     resolve: (picked) => {
@@ -952,7 +954,7 @@ async function fetchAndPickModel(
             type: 'append',
             entry: {
               kind: 'error',
-              text: 'custom model entry unavailable — use /model <id> instead.',
+              text: 'özel model girişi kullanılamıyor — bunun yerine /model <id> kullan.',
             },
           });
           return;
@@ -975,7 +977,7 @@ async function fetchAndPickModel(
                 type: 'append',
                 entry: {
                   kind: 'error',
-                  text: `provider switch failed: ${(err as Error).message}`,
+                  text: `sağlayıcı değiştirilemedi: ${(err as Error).message}`,
                 },
               }),
             );
@@ -995,7 +997,7 @@ async function fetchAndPickModel(
         .catch((err: unknown) =>
           dispatch({
             type: 'append',
-            entry: { kind: 'error', text: `provider switch failed: ${(err as Error).message}` },
+            entry: { kind: 'error', text: `sağlayıcı değiştirilemedi: ${(err as Error).message}` },
           }),
         );
     },
@@ -1014,12 +1016,12 @@ function openOpenCodeProviderPicker(
   const cur = readConfig();
   const req: AskRequest = {
     question: {
-      header: 'Provider catalog',
-      question: 'OpenCode-compatible providers',
-      subtitle: 'OpenAI Chat Completions scheme · Bearer auth',
-      footer: '↑↓ navigate · Enter select · Esc cancel',
+      header: 'Sağlayıcı kataloğu',
+      question: 'OpenCode uyumlu sağlayıcılar',
+      subtitle: 'OpenAI Chat Completions düzeni · Bearer kimlik doğrulama',
+      footer: '↑↓ gezin · Enter seç · Esc iptal',
       options: OPENAI_SCHEME_PROVIDERS.map((p) => ({
-        group: 'OpenCode catalog',
+        group: 'OpenCode kataloğu',
         label: withCurrent(p.name, cur.backend === p.id),
         badge: 'Cloud',
         description: p.description.replace(/^remote — /i, ''),
@@ -1064,14 +1066,14 @@ function startPresetProvider(
       {
         customModels: config.customModels,
         promptSecret,
-        successText: (m) => `provider set to ${preset.name} · model ${m}`,
+        successText: (m) => `sağlayıcı: ${preset.name} · model: ${m}`,
       },
     );
     return;
   }
   void promptSecret({
     header: `${preset.name} API`,
-    question: 'Enter your API key',
+    question: 'API anahtarını gir',
     subtitle: `Env  ${preset.envKeys.join(' / ')}`,
     placeholder: 'sk-…',
   })
@@ -1086,7 +1088,7 @@ function startPresetProvider(
       void fetchAndPickModel(backend, preset.baseURL, apiKey, dispatch, applyProvider, {
         customModels: config.customModels,
         promptSecret,
-        successText: (m) => `provider set to ${preset.name} · model ${m}`,
+        successText: (m) => `sağlayıcı: ${preset.name} · model: ${m}`,
       });
     })
     .catch(() => {
@@ -1139,22 +1141,22 @@ function modelDescription(
   customModels: string[] = [],
 ): string | undefined {
   const parts: string[] = [];
-  if (currentModel && model === currentModel) parts.push('current / used before');
-  if (customModels.includes(model) && model !== currentModel) parts.push('custom / remembered');
+  if (currentModel && model === currentModel) parts.push('geçerli / daha önce kullanıldı');
+  if (customModels.includes(model) && model !== currentModel) parts.push('özel / hatırlanan');
   if (backend === 'openai' && OPENAI_RECOMMENDED_MODELS.includes(model)) parts.push('OpenAI');
   if (backend === 'kimi' && KIMI_MODELS.includes(model)) parts.push('Kimi/Moonshot');
   if (backend === 'groq' && GROQ_MODELS.includes(model)) parts.push('Groq');
   if (backend === 'openrouter' && OPENROUTER_RECOMMENDED_MODELS.includes(model)) {
-    parts.push('OpenRouter router');
+    parts.push('OpenRouter yönlendirici');
   }
   if (backend === 'deepseek' && DEEPSEEK_MODELS.includes(model)) parts.push('DeepSeek');
   if (backend === 'naraya' && NARAYA_MODELS.includes(model)) parts.push('Naraya');
   if (backend === 'dahl' && DAHL_MODELS.includes(model)) parts.push('Dahl');
   if (backend === 'gemini') {
-    if (GEMINI_CHEAP_MODELS.includes(model)) parts.push('cheap cost');
-    else if (GEMINI_RECOMMENDED_MODELS.includes(model)) parts.push('best fit');
+    if (GEMINI_CHEAP_MODELS.includes(model)) parts.push('düşük maliyet');
+    else if (GEMINI_RECOMMENDED_MODELS.includes(model)) parts.push('en iyi uyum');
   }
   if (backend === 'anthropic' && ANTHROPIC_RECOMMENDED_MODELS.includes(model)) parts.push('Claude');
-  if (backend === 'openai-compat') parts.push('OpenAI scheme');
+  if (backend === 'openai-compat') parts.push('OpenAI düzeni');
   return parts.length > 0 ? parts.join(' · ') : undefined;
 }

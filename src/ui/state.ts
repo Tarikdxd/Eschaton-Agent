@@ -494,45 +494,45 @@ function shellTitleFromPreview(preview: string): string {
     case 'curl':
     case 'http':
     case 'wget':
-      return 'HTTP request';
+      return 'HTTP isteği';
     case 'for':
     case 'while':
     case 'until':
-      return 'Run loop';
+      return 'Döngü çalıştır';
     case 'mkdir':
-      return 'Create directory';
+      return 'Dizin oluştur';
     case 'grep':
     case 'rg':
-      return 'Search files';
+      return 'Dosyalarda ara';
     case 'find':
-      return 'Find files';
+      return 'Dosya bul';
     case 'cat':
     case 'head':
     case 'tail':
-      return 'Read output';
+      return 'Çıktı oku';
     case 'awk':
     case 'jq':
     case 'sed':
-      return 'Process text';
+      return 'Metni işle';
     case 'python':
     case 'python3':
     case 'node':
     case 'tsx':
-      return 'Run script';
+      return 'Betik çalıştır';
     case 'npm':
     case 'pnpm':
     case 'yarn':
     case 'bun':
-      return 'Run package task';
+      return 'Paket görevini çalıştır';
     case 'git':
-      return 'Git command';
+      return 'Git komutu';
     case 'openssl':
       return 'OpenSSL';
     case 'echo':
     case 'printf':
-      return 'Print text';
+      return 'Metin yazdır';
     default:
-      return `Run ${firstWord}`;
+      return `${firstWord} çalıştır`;
   }
 }
 
@@ -579,31 +579,31 @@ function argStr(args: Record<string, unknown>, key: string): string {
 /** Short display name for the ⏺ line (Grok-style Title Case). */
 function compactToolLabel(name: string): string {
   const map: Record<string, string> = {
-    shell: 'Shell',
+    shell: 'Kabuk',
     bash: 'Bash',
     BashTool: 'Bash',
-    scope: 'Scope',
+    scope: 'Kapsam',
     http: 'HTTP',
-    file_read: 'Read',
-    FileReadTool: 'Read',
-    file_write: 'Write',
-    FileWriteTool: 'Write',
-    file_edit: 'Edit',
-    FileEditTool: 'Edit',
+    file_read: 'Oku',
+    FileReadTool: 'Oku',
+    file_write: 'Yaz',
+    FileWriteTool: 'Yaz',
+    file_edit: 'Düzenle',
+    FileEditTool: 'Düzenle',
     glob: 'Glob',
     grep: 'Grep',
-    web_fetch: 'Fetch',
-    web_search: 'Search',
-    load_skill: 'Skill',
-    ask_user: 'Ask User',
-    todo: 'Todo',
-    coverage: 'Coverage',
-    confirm_finding: 'Finding',
-    delegate_task: 'Delegate',
-    background_status: 'Jobs',
+    web_fetch: 'Getir',
+    web_search: 'Ara',
+    load_skill: 'Beceri',
+    ask_user: 'Sor',
+    todo: 'Yapılacak',
+    coverage: 'Kapsam',
+    confirm_finding: 'Bulgu',
+    delegate_task: 'Devret',
+    background_status: 'İşler',
   };
   if (map[name]) return map[name];
-  if (name.startsWith('mcp_browser_browser_')) return 'Browser';
+  if (name.startsWith('mcp_browser_browser_')) return 'Tarayıcı';
   const d = displayToolName(name);
   return d.charAt(0).toUpperCase() + d.slice(1);
 }
@@ -795,7 +795,7 @@ function toolResultPrefix(
 
 /** Render a todo-tool write as a compact checklist for the transcript. */
 export function formatTodoTranscript(items: TodoItem[]): string {
-  if (items.length === 0) return 'todo list cleared';
+  if (items.length === 0) return 'yapılacak listesi temizlendi';
   const glyph = (s: TodoItem['status']): string =>
     s === 'completed' ? '☑' : s === 'in_progress' ? '▶' : '☐';
   return items.map((i) => `${glyph(i.status)} ${i.text}`).join('\n');
@@ -816,7 +816,7 @@ export function formatDecisionTranscript(summary: string): string {
   const skill = s.match(/selected skill:\s*([^·]+)/i)?.[1]?.trim();
   const risk = s.match(/risk:\s*(\w+)/i)?.[1]?.toLowerCase();
   if (skill) {
-    return risk === 'high' ? `plan · ${skill} · high risk` : `plan · ${skill}`;
+    return risk === 'high' ? `plan · ${skill} · yüksek risk` : `plan · ${skill}`;
   }
   if (s.length <= 64) return s;
   return `${s.slice(0, 61)}…`;
@@ -828,15 +828,15 @@ export function formatDecisionTranscript(summary: string): string {
  */
 export function formatCompactEvent(ev: Extract<AgentEvent, { type: 'compact' }>): string {
   const s = (ev.summary ?? '').trim();
-  if (!s || /^nothing to compact$/i.test(s)) return 'Nothing to compact';
+  if (!s || /^nothing to compact$/i.test(s)) return 'Sıkıştırılacak bir şey yok';
 
   const parts: string[] = [];
   if (typeof ev.tokensBefore === 'number' && typeof ev.tokensAfter === 'number') {
-    parts.push(`~${ev.tokensBefore} → ~${ev.tokensAfter} tokens`);
+    parts.push(`~${ev.tokensBefore} → ~${ev.tokensAfter} token`);
   }
   // Skip "0 memory items" noise.
   if (typeof ev.memoryItems === 'number' && ev.memoryItems > 0) {
-    parts.push(`${ev.memoryItems} memory`);
+    parts.push(`${ev.memoryItems} bellek`);
   }
 
   // Operational auto-compact / short labels from the agent.
@@ -846,11 +846,11 @@ export function formatCompactEvent(ev: Extract<AgentEvent, { type: 'compact' }>)
     /^compacted:/i.test(s) ||
     s.length <= 64
   ) {
-    return parts.length > 0 ? `Context compacted · ${parts.join(' · ')}` : 'Context compacted';
+    return parts.length > 0 ? `Bağlam sıkıştırıldı · ${parts.join(' · ')}` : 'Bağlam sıkıştırıldı';
   }
 
   // Legacy: a long summary string used to be the LLM body — keep the UI short.
-  return parts.length > 0 ? `Context compacted · ${parts.join(' · ')}` : 'Context compacted';
+  return parts.length > 0 ? `Bağlam sıkıştırıldı · ${parts.join(' · ')}` : 'Bağlam sıkıştırıldı';
 }
 
 /**
@@ -876,9 +876,7 @@ export function collapseAssistantProse(text: string): {
   const shown = head.split('\n').length;
   const hidden = Math.max(0, lines.length - shown);
   const cue =
-    hidden > 0
-      ? `… ${hidden} more line${hidden === 1 ? '' : 's'} · click to expand`
-      : '… · click to expand';
+    hidden > 0 ? `… ${hidden} satır daha · genişletmek için tıkla` : '… · genişletmek için tıkla';
   return { preview: `${head}\n${cue}`, full, collapsible: true };
 }
 

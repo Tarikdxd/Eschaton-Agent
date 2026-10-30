@@ -20,13 +20,13 @@ export interface BannerData {
 export function modelPill(t?: ToolSupportPill): { text: string; color: string } | null {
   switch (t) {
     case 'yes':
-      return { text: 'tools ✓', color: 'green' };
+      return { text: 'araçlar ✓', color: 'green' };
     case 'no':
-      return { text: 'NO TOOLS', color: 'red' };
+      return { text: 'ARAÇ YOK', color: 'red' };
     case 'probing':
-      return { text: 'probing…', color: 'yellow' };
+      return { text: 'yoklanıyor…', color: 'yellow' };
     case 'unknown':
-      return { text: 'tools ?', color: 'gray' };
+      return { text: 'araçlar ?', color: 'gray' };
     default:
       return null;
   }

@@ -157,7 +157,7 @@ describe('App (OpenTUI)', () => {
     await new Promise((r) => setTimeout(r, 40));
     await setup.renderOnce();
     const frame = setup.captureCharFrame();
-    expect(frame).toMatch(/Nothing to copy yet/i);
+    expect(frame).toMatch(/Henüz kopyalanacak bir şey yok/i);
   });
 
   it('Ctrl-C aborts an in-flight run and calls onExit', async () => {
@@ -181,14 +181,14 @@ describe('App (OpenTUI)', () => {
     const setup = await mountApp();
     await pressAndFlush(setup, () => setup.mockInput.typeText('@src/ui-opentui/App'));
     const frame = setup.captureCharFrame();
-    expect(frame).toContain('FILES');
+    expect(frame).toContain('DOSYALAR');
   });
 
   it('shows the / command menu while typing a slash command', async () => {
     const setup = await mountApp();
     await pressAndFlush(setup, () => setup.mockInput.typeText('/clear'));
     const frame = setup.captureCharFrame();
-    expect(frame).toContain('COMMANDS');
+    expect(frame).toContain('KOMUTLAR');
   });
 
   it('opens the provider picker when selecting /provider from the slash menu', async () => {
@@ -197,7 +197,7 @@ describe('App (OpenTUI)', () => {
     await pressAndFlush(setup, () => setup.mockInput.pressArrow('down'));
     await pressAndFlush(setup, () => setup.mockInput.pressEnter());
     const frame = setup.captureCharFrame();
-    expect(frame).toContain('Select an LLM provider for this session');
+    expect(frame).toContain('Bu oturum için LLM sağlayıcısı seç');
   });
 
   it('surfaces a permission request published through bindPermPublisher as a modal', async () => {
@@ -221,6 +221,6 @@ describe('App (OpenTUI)', () => {
       await setup.renderOnce();
     });
     const frame = setup.captureCharFrame();
-    expect(frame).toContain('PERMISSION');
+    expect(frame).toContain('İZİN');
   });
 });

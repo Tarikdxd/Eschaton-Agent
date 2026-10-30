@@ -65,7 +65,7 @@ describe('AskModal rendering', () => {
     expect(frame).toContain('choose a backend');
     expect(frame).toContain('Ollama');
     expect(frame).toContain('Anthropic');
-    expect(frame).toContain('↑↓ navigate');
+    expect(frame).toContain('↑↓ gezin');
   });
 
   it('shows a disabled option dimmed without a caret slot', async () => {

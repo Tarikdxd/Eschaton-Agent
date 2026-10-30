@@ -21,7 +21,7 @@ describe('MCPTool', () => {
     );
 
     await expect(tool.run({}, new AbortController().signal, new AlwaysAllow())).rejects.toThrow(
-      'Browser Click failed: WebSocket response timeout after 30000ms',
+      'Tarayıcı Tıkla failed: WebSocket response timeout after 30000ms',
     );
     await expect(tool.run({}, new AbortController().signal, new AlwaysAllow())).rejects.not.toThrow(
       'isError',

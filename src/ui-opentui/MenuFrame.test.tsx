@@ -27,7 +27,7 @@ async function renderFrame(node: Parameters<typeof testRender>[0]): Promise<stri
 describe('SlashMenu', () => {
   it('renders framed chrome with caret on the selected row', async () => {
     const frame = await renderFrame(<SlashMenu items={items} selected={1} />);
-    expect(frame).toContain('COMMANDS');
+    expect(frame).toContain('KOMUTLAR');
     expect(frame).toContain('/help');
     expect(frame).toContain('/provider');
     expect(frame).toContain('pick backend');
@@ -66,7 +66,7 @@ describe('MentionMenu', () => {
         ]}
       />,
     );
-    expect(frame).toContain('FILES');
+    expect(frame).toContain('DOSYALAR');
     expect(frame).toContain('@ src/ui');
     expect(frame).toContain('components/');
     expect(frame).toContain('Banner.tsx');
