@@ -10,6 +10,8 @@ dosya okuyup düzenler, test çalıştırır, kod yazar.
 <br/>
 
 [![build](https://img.shields.io/github/actions/workflow/status/Tarikdxd/Eschaton-Agent/ci.yml?branch=main&label=build&logo=github)](https://github.com/Tarikdxd/Eschaton-Agent/actions)
+[![release](https://img.shields.io/github/v/release/Tarikdxd/Eschaton-Agent?include_prereleases&logo=github)](https://github.com/Tarikdxd/Eschaton-Agent/releases)
+[![stars](https://img.shields.io/github/stars/Tarikdxd/Eschaton-Agent?style=social)](https://github.com/Tarikdxd/Eschaton-Agent/stargazers)
 [![node](https://img.shields.io/badge/node-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![license: Apache--2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
@@ -364,9 +366,9 @@ bun run build
 
 ## Katkı
 
-Issue ve PR'lara açığız. Değişiklikleri odaklı tutun, davranış değişikliklerine
-test ekleyin ve PR açmadan önce `bun run ci` çalıştırın. Yeni beceriler
-`SKILL.md` içermeli ve beceri uygunluk testlerinden geçmelidir.
+Katkı rehberi: [CONTRIBUTING.md](CONTRIBUTING.md). Güvenlik açıkları için
+[SECURITY.md](SECURITY.md) sürecini izleyin. Değişiklikleri odaklı tutun,
+davranış değişikliklerine test ekleyin ve PR açmadan önce `bun run ci` çalıştırın.
 
 ## Lisans
 

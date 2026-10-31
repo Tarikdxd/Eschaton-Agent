@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Güvenlik açığı bildirimi
+    url: https://github.com/Tarikdxd/Eschaton-Agent/security/advisories/new
+    about: Güvenlik açıklarını herkese açık issue olarak açmayın; özel danışmanlık kullanın.
+  - name: Kullanım ve kurulum soruları
+    url: https://github.com/Tarikdxd/Eschaton-Agent/issues/new?labels=question
+    about: Hata olmayan sorular için "question" etiketli issue açın.
