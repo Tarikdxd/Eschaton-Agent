@@ -1,0 +1,81 @@
+name: Hata bildirimi
+description: Beklenmeyen davranış veya hata bildir.
+title: "[hata] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Teşekkürler. Lütfen **API anahtarı, token, çerez veya kişisel veri** paylaşma.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Özet
+      description: Ne oldu, ne bekliyordun?
+      placeholder: Kısa ve net bir açıklama.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Yeniden üretme adımları
+      placeholder: |
+        1. `eschaton` başlat
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Sürüm
+      description: "`eschaton --version` çıktısı"
+      placeholder: "eschaton 1.0.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: İşletim sistemi
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - WSL
+        - Diğer
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Sağlayıcı
+      options:
+        - ollama
+        - lmstudio
+        - openai
+        - openai-compat
+        - anthropic
+        - gemini
+        - deepseek
+        - openrouter
+        - groq
+        - Diğer
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log / ekran çıktısı
+      description: Gizli bilgileri sansürle.
+      render: shell
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Kontroller
+      options:
+        - label: Gizli bilgi paylaşmadım.
+          required: true
+        - label: Aynı hatayı aradım; mevcut issue yok.
+          required: true

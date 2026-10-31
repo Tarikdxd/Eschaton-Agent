@@ -1,0 +1,47 @@
+name: Özellik isteği
+description: Yeni bir yetenek veya iyileştirme öner.
+title: "[özellik] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Hangi sorunu çözüyor?
+      description: Mevcut durumda ne eksik / ne zor?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Önerilen çözüm
+      description: Nasıl çalışmasını istersin? Örnek komut/akış ekleyebilirsin.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatifler
+      description: Denediğin veya düşündüğün başka yollar.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Alan
+      options:
+        - Ajan / sistem istemi
+        - Araçlar (shell, http, dosya, MCP)
+        - Beceriler
+        - Arayüz
+        - CLI / sağlayıcılar
+        - Dokümantasyon
+        - Diğer
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Kontroller
+      options:
+        - label: Benzer bir istek aradım; mevcut issue yok.
+          required: true
