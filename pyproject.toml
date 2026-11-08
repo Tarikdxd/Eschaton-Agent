@@ -5,14 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "eschaton-agent"
 version = "1.0.0"
-description = "Universal Computer-Controlling Agent (CCA) with Multimodal Vision and LLM Reasoning"
+description = "Doğal dil ile bilgisayar kontrolü sağlayan otonom masaüstü ajanı."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "Tarık Tozlu" }
 ]
-keywords = ["agent", "computer-use", "vision", "automation", "mcp", "llm"]
 dependencies = [
     "pydantic>=2.0.0",
     "pyautogui>=0.9.54",
@@ -27,7 +26,7 @@ dependencies = [
 ]
 
 [project.scripts]
-eschaton = "eschaton.cli:app"
+eschaton = "eschaton.chat:start_chat_session"
 
 [tool.setuptools.packages.find]
 where = ["."]

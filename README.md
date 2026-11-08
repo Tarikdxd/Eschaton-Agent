@@ -1,70 +1,48 @@
-# ⚡ Eschaton-Agent (CCA)
+# Eschaton Agent
 
-> **Evrensel Bilgisayar Kontrol Ajanı (Universal Computer-Controlling Agent)**  
-> Ekranı anlık olarak izleyip fare, klavye ve sistem komutlarını insan gibi otonom olarak yöneten yeni nesil CCA mimarisi.
+Doğal dil komutlarıyla işletim sisteminizi yöneten otonom bilgisayar kontrol ajanı (CCA). Ekranı analiz eder, fare ve klavye girdilerini insan gibi kullanarak talimatları yerine getirir.
 
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Architecture](https://img.shields.io/badge/Architecture-Computer--Use%20%2F%20Vision-purple.svg)]()
-
----
-
-## 🎯 Özellikler
-
-- 👁️ **Multimodal Vision & Screen Grounding:** Anlık ekran görüntüsünü alıp hedef UI elementlerinin (butonlar, pencereler, girdi alanları) piksel koordinatlarını otomatik hesaplar.
-- 🖐️ **Gerçekçi OS Kontrolü:** Fareyle tıklama (sol, sağ, çift), sürükle-bırak, scroll, klavye yazımı ve `Win`, `Alt+Tab`, `Ctrl+C` gibi sistem kısayollarını bizzat yürütür.
-- 🧠 **Model Agnostik / Evrensel Entegrasyon:**
-  - **OpenAI Compatible:** DeepSeek, Ollama, OpenRouter, Groq, vLLM veya özel yerel modeller (`--base-url` desteği).
-  - **Anthropic Claude:** Claude 3.5 / 3.7 Computer Use vizyon motoru.
-  - **Google Gemini:** Gemini 2.0 / 2.5 Flash / Pro Multimodal API.
-  - **MCP (Model Context Protocol):** Harici MCP araçlarına bağlanabilen genişletilebilir yapı.
-- 🛡️ **Fail-Safe & Güvenlik Kapısı:** Fare ekran köşesine çekildiğinde anında acil durdurma (failsafe) ve tehlikeli sistem komutlarını engelleyen filtreler.
-
----
-
-## 🚀 Kurulum
+## Kurulum
 
 ```bash
-# Depoyu klonlayın
 git clone https://github.com/Tarikdxd/Eschaton-Agent.git
 cd Eschaton-Agent
-
-# Gerekli bağımlılıkları yükleyin
 pip install -e .
 ```
 
----
-
-## ⚙️ Yapılandırma
-
-API anahtarınızı ve tercih ettiğiniz modeli ister ortam değişkenleri ile ister tek bir CLI komutu ile kaydedin:
+Kurulum bittikten sonra terminale doğrudan şu komutu yazmanız yeterlidir:
 
 ```bash
-# DeepSeek veya Custom OpenAI-compatible API
-eschaton config --provider openai_compatible --model deepseek-chat --base-url https://api.deepseek.com/v1 --api-key sk-xxxx
-
-# Anthropic Claude
-eschaton config --provider anthropic --model claude-3-7-sonnet-20250219 --api-key sk-ant-xxxx
-
-# Google Gemini
-eschaton config --provider gemini --model gemini-2.5-flash --api-key AIzaxxxx
+eschaton
 ```
 
----
+İlk çalıştırmada sağlayıcı (OpenAI/DeepSeek, Claude, Gemini) ve API anahtarınızı interaktif olarak sorar ve kaydeder.
 
-## 🎮 Kullanım Örnekleri
+## Kullanım
 
-Ajanı çalıştırmak için doğrudan doğal dille hedefinizi verin:
+Her komut için ayrı parametre girmeniz gerekmez. `eschaton` yazarak sürekli sohbet oturumunu başlatabilirsiniz:
 
-```bash
-# Canlı Bilgisayar Kontrolü
-eschaton run "OBS Studio'yu aç, kaydı başlat, ardından tarayıcıya girip son haberleri özetle"
+```text
+Eschaton v1.0 - Doğal dil ile bilgisayar kontrolü.
+Komutlar:
+  /config : Sağlayıcı ve API ayarları
+  /help   : Yardım
+  exit    : Çıkış
 
-# Test / Simülasyon (Gerçekte tıklamadan adımları ekranda planlar)
-eschaton run "Hesap makinesini aç ve 150 * 42 hesapla" --dry-run
+Sen > OBS'i aç ve kayıt başlat
+Eschaton çalışıyor...
 ```
 
----
+## Desteklenen Sağlayıcılar
 
-## 🔒 Güvenlik Notu (Fail-Safe)
-Ajan çalışırken kontrolü anında elinize almak için fareyi **hızlıca ekranın sol üst köşesine** çekmeniz yeterlidir. PyAutoGUI Fail-Safe mekanizması ajanı derhal durduracaktır.
+- **OpenAI Compatible:** DeepSeek, Ollama, OpenRouter, Groq ve yerel modeller (özel base URL desteği).
+- **Anthropic:** Claude 3.5 / 3.7 Sonnet Computer Use.
+- **Google:** Gemini 2.0 / 2.5 Flash ve Pro.
+
+## Güvenlik (Fail-Safe)
+
+Ajan çalışırken kontrolü anında devralmak için fareyi **ekranın sol üst köşesine** çekmeniz yeterlidir. PyAutoGUI acil durdurma mekanizması işlemi hemen sonlandırır.
+
+## Lisans
+
+MIT
