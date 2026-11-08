@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eschaton - Bilgisayar Kontrol Ajanı</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #121316;
+      color: #e1e3e6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #1a1c23;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #2a2d37;
+    }
+    header h1 { font-size: 1.1rem; font-weight: 600; color: #fff; }
+    .badge {
+      background: #2a3b2b;
+      color: #4ade80;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    #settings-btn {
+      background: transparent;
+      border: 1px solid #373b47;
+      color: #ccc;
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #settings-btn:hover { background: #262933; }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 20px;
+      overflow: hidden;
+    }
+    #chat-box {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding-bottom: 10px;
+    }
+    .msg {
+      padding: 12px 16px;
+      border-radius: 8px;
+      max-width: 80%;
+      line-height: 1.5;
+      font-size: 0.95rem;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #2563eb;
+      color: #fff;
+    }
+    .msg.agent {
+      align-self: flex-start;
+      background: #1f222b;
+      border: 1px solid #2e323e;
+      color: #e2e8f0;
+    }
+    .msg.system {
+      align-self: center;
+      background: #181a20;
+      border: 1px dashed #3a3f50;
+      color: #94a3b8;
+      font-size: 0.85rem;
+    }
+    .input-bar {
+      display: flex;
+      gap: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #252834;
+      align-items: center;
+    }
+    textarea {
+      flex: 1;
+      background: #1b1d24;
+      border: 1px solid #2e3240;
+      color: #fff;
+      padding: 12px;
+      border-radius: 8px;
+      resize: none;
+      height: 48px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+    textarea:focus { border-color: #3b82f6; }
+    button.action-btn {
+      background: #2563eb;
+      border: none;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button.action-btn:hover { background: #1d4ed8; }
+    button.voice-btn {
+      background: #2d313f;
+      border: 1px solid #3d4255;
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button.voice-btn.recording {
+      background: #dc2626;
+      border-color: #ef4444;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+    /* Settings Modal */
+    #settings-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-card {
+      background: #1a1c24;
+      border: 1px solid #2e3344;
+      border-radius: 10px;
+      width: 450px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-card input, .modal-card select {
+      background: #12141a;
+      border: 1px solid #2b3040;
+      padding: 10px;
+      color: #fff;
+      border-radius: 6px;
+      outline: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <h1>Eschaton CCA</h1>
+      <span class="badge">Otonom Bilgisayar Kontrolü</span>
+    </div>
+    <button id="settings-btn" onclick="openSettings()">⚙️ Ayarlar</button>
+  </header>
+
+  <main>
+    <div id="chat-box">
+      <div class="msg system">Eschaton hazır. Hedefinizi yazarak veya mikrofon butonuna basıp konuşarak söyleyebilirsiniz.</div>
+    </div>
+
+    <div class="input-bar">
+      <textarea id="prompt-input" placeholder="Bilgisayarda ne yapılmasını istersiniz? (Örn: YouTube'u aç, video izle, trading ekranını aç...)" onkeydown="handleKey(event)"></textarea>
+      <button class="voice-btn" id="voice-btn" onclick="toggleVoice()">🎙️ Sesli Konuş</button>
+      <button class="action-btn" onclick="sendTask()">Gönder</button>
+    </div>
+  </main>
+
+  <div id="settings-modal">
+    <div class="modal-card">
+      <h3 style="color:#fff;">Model & API Yapılandırması</h3>
+      <label style="font-size:0.85rem; color:#888;">Sağlayıcı</label>
+      <select id="cfg-provider">
+        <option value="openai_compatible">OpenAI Uyumlu (DeepSeek / OpenAI / Local LLM)</option>
+        <option value="anthropic">Anthropic (Claude Computer Use)</option>
+        <option value="gemini">Google Gemini</option>
+      </select>
+      <label style="font-size:0.85rem; color:#888;">Model Adı</label>
+      <input id="cfg-model" placeholder="gpt-4o, deepseek-chat, claude-3-7-sonnet..." />
+      <label style="font-size:0.85rem; color:#888;">Base URL (Custom/DeepSeek/Ollama için)</label>
+      <input id="cfg-base-url" placeholder="https://api.deepseek.com/v1" />
+      <label style="font-size:0.85rem; color:#888;">API Anahtarı</label>
+      <input id="cfg-api-key" type="password" placeholder="sk-..." />
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+        <button style="background:#2a2e3d; border:none; color:#ccc; padding:8px 14px; border-radius:6px; cursor:pointer;" onclick="closeSettings()">Kapat</button>
+        <button style="background:#2563eb; border:none; color:#fff; padding:8px 14px; border-radius:6px; cursor:pointer;" onclick="saveSettings()">Kaydet</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById('chat-box');
+    const promptInput = document.getElementById('prompt-input');
+    const voiceBtn = document.getElementById('voice-btn');
+    let recognition = null;
+    let isRecording = false;
+
+    // Web Speech API (Browser native STT)
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'tr-TR';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        promptInput.value = transcript;
+        speak("Anladım, göreve başlıyorum.");
+        sendTask();
+      };
+
+      recognition.onerror = () => toggleVoice(false);
+      recognition.onend = () => toggleVoice(false);
+    }
+
+    function toggleVoice(forceState) {
+      if (!recognition) {
+        alert("Tarayıcınız ses tanıma (SpeechRecognition) desteklemiyor.");
+        return;
+      }
+      isRecording = typeof forceState === 'boolean' ? forceState : !isRecording;
+      if (isRecording) {
+        voiceBtn.classList.add('recording');
+        voiceBtn.innerText = '🛑 Dinliyor...';
+        recognition.start();
+      } else {
+        voiceBtn.classList.remove('recording');
+        voiceBtn.innerText = '🎙️ Sesli Konuş';
+        try { recognition.stop(); } catch(e){}
+      }
+    }
+
+    // Native Speech Synthesis (TTS Voice Response)
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'tr-TR';
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function appendMsg(text, sender) {
+      const div = document.createElement('div');
+      div.className = `msg ${sender}`;
+      div.innerText = text;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function handleKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendTask();
+      }
+    }
+
+    async function sendTask() {
+      const goal = promptInput.value.trim();
+      if (!goal) return;
+
+      appendMsg(goal, 'user');
+      promptInput.value = '';
+      appendMsg('Eschaton bilgisayarı kontrol ederek görevi yerine getiriyor...', 'system');
+
+      try {
+        const res = await fetch('/api/task', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ goal })
+        });
+        const data = await res.json();
+        appendMsg(data.result, 'agent');
+        speak(data.result);
+      } catch (err) {
+        appendMsg('Bağlantı hatası: ' + err, 'system');
+      }
+    }
+
+    // Settings Modal
+    function openSettings() {
+      fetch('/api/config')
+        .then(r => r.json())
+        .then(data => {
+          document.getElementById('cfg-provider').value = data.provider || 'openai_compatible';
+          document.getElementById('cfg-model').value = data.model || '';
+          document.getElementById('cfg-base-url').value = data.base_url || '';
+          document.getElementById('cfg-api-key').value = data.api_key || '';
+          document.getElementById('settings-modal').style.display = 'flex';
+        });
+    }
+
+    function closeSettings() {
+      document.getElementById('settings-modal').style.display = 'none';
+    }
+
+    async function saveSettings() {
+      const payload = {
+        provider: document.getElementById('cfg-provider').value,
+        model: document.getElementById('cfg-model').value,
+        base_url: document.getElementById('cfg-base-url').value,
+        api_key: document.getElementById('cfg-api-key').value
+      };
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      closeSettings();
+      appendMsg('Ayarlar başarıyla güncellendi.', 'system');
+    }
+  </script>
+</body>
+</html>
