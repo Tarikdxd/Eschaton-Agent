@@ -1,10 +1,6 @@
-from eschaton.chat import start_chat_session
+"""Module entry point for `python -m eschaton`."""
 
-
-def main():
-    """Doğrudan 'eschaton' yazıldığında interaktif sohbeti başlatır."""
-    start_chat_session()
-
+from eschaton.cli import app
 
 if __name__ == "__main__":
-    main()
+    app()

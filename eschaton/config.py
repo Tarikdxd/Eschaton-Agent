@@ -1,62 +1,83 @@
-from typing import Optional, Literal
-from pydantic import BaseModel, Field
+"""Configuration and global invariants for Eschaton-Agent."""
+
+from __future__ import annotations
+
 import os
-import json
 from pathlib import Path
+from typing import List
 
-CONFIG_DIR = Path.home() / ".eschaton"
-CONFIG_FILE = CONFIG_DIR / "config.json"
+from pydantic import BaseModel, Field
 
 
-class AgentConfig(BaseModel):
-    # Provider Settings
-    provider: Literal["openai_compatible", "anthropic", "gemini"] = Field(
-        default="openai_compatible",
-        description="LLM Provider to use (openai_compatible, anthropic, gemini)"
+# Hard invariant: Antigravity usage must NEVER drop below 10.0% remaining.
+MIN_REMAINING_USAGE_PERCENT: float = 10.0
+
+# Economy mode threshold: between 10% and 15% remaining, enforce high-efficiency models.
+ECONOMY_MODE_THRESHOLD_PERCENT: float = 15.0
+
+# Default CDP ports probed when searching for a running Antigravity Electron instance.
+DEFAULT_CDP_PORTS: List[int] = [9222, 9223, 9229, 9333, 9444]
+
+
+class EschatonConfig(BaseModel):
+    """Runtime configuration for Eschaton-Agent."""
+
+    state_dir: Path = Field(default_factory=lambda: Path.home() / ".eschaton")
+    antigravity_state_dir: Path = Field(
+        default_factory=lambda: Path.home() / ".gemini" / "antigravity"
     )
-    api_key: str = Field(default="", description="API Key for the provider")
-    base_url: Optional[str] = Field(
-        default=None, 
-        description="Custom Base URL (e.g. https://api.deepseek.com/v1, http://localhost:11434/v1, or OpenRouter)"
-    )
-    model: str = Field(
-        default="gpt-4o",
-        description="Model identifier (e.g. gpt-4o, claude-3-7-sonnet-20250219, gemini-2.0-flash, deepseek-chat)"
+    cdp_host: str = "127.0.0.1"
+    cdp_ports: List[int] = Field(default_factory=lambda: list(DEFAULT_CDP_PORTS))
+    preferred_cdp_port: int = 9222
+    min_remaining_usage_percent: float = MIN_REMAINING_USAGE_PERCENT
+    economy_threshold_percent: float = ECONOMY_MODE_THRESHOLD_PERCENT
+    benchmark_cache_ttl_seconds: int = 21600  # 6 hours
+    default_context_window_tokens: int = 200_000
+    # Approximate token budget corresponding to 100% of a typical Antigravity rolling quota window.
+    estimated_quota_window_tokens: int = 2_000_000
+    workspace_search_roots: List[Path] = Field(
+        default_factory=lambda: [
+            Path.cwd(),
+            Path.home() / "Projects",
+            Path.home() / "Desktop",
+            Path.home() / "Documents",
+            Path.home() / "dev",
+            Path.home() / "workspace",
+            Path.home(),
+        ]
     )
 
-    # Controller & Vision Settings
-    action_delay: float = Field(default=0.5, description="Delay between actions in seconds")
-    screenshot_scale: float = Field(default=1.0, description="Scale factor for screenshots before sending to model")
-    failsafe: bool = Field(default=True, description="Enable PyAutoGUI mouse corner fail-safe")
-    max_steps: int = Field(default=50, description="Maximum iterations before prompting user")
-    
-    # MCP Settings
-    mcp_servers: list[str] = Field(default_factory=list, description="Paths or endpoints to MCP servers")
+    def ensure_state_dir(self) -> Path:
+        self.state_dir.mkdir(parents=True, exist_ok=True)
+        return self.state_dir
 
     @classmethod
-    def load(cls) -> "AgentConfig":
-        if CONFIG_FILE.exists():
+    def from_env(cls) -> "EschatonConfig":
+        """Build configuration honoring optional environment overrides."""
+        kwargs = {}
+        if env_dir := os.getenv("ESCHATON_STATE_DIR"):
+            kwargs["state_dir"] = Path(env_dir)
+        if ag_dir := os.getenv("ANTIGRAVITY_STATE_DIR"):
+            kwargs["antigravity_state_dir"] = Path(ag_dir)
+        if port := os.getenv("ESCHATON_CDP_PORT"):
             try:
-                with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    return cls(**data)
-            except Exception:
+                p = int(port)
+                kwargs["preferred_cdp_port"] = p
+                kwargs["cdp_ports"] = [p] + [x for x in DEFAULT_CDP_PORTS if x != p]
+            except ValueError:
                 pass
-        
-        # Check environment variables
-        env_provider = os.getenv("ESCHATON_PROVIDER", "openai_compatible")
-        env_key = os.getenv("ESCHATON_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("GEMINI_API_KEY") or ""
-        env_base_url = os.getenv("ESCHATON_BASE_URL") or os.getenv("OPENAI_BASE_URL")
-        env_model = os.getenv("ESCHATON_MODEL", "gpt-4o")
-
-        return cls(
-            provider=env_provider,  # type: ignore
-            api_key=env_key,
-            base_url=env_base_url,
-            model=env_model
-        )
-
-    def save(self) -> None:
-        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump(self.model_dump(), f, indent=2, ensure_ascii=False)
+        if quota := os.getenv("ESCHATON_QUOTA_WINDOW_TOKENS"):
+            try:
+                kwargs["estimated_quota_window_tokens"] = max(50_000, int(quota))
+            except ValueError:
+                pass
+        # Note: min_remaining_usage_percent is intentionally clamped to >= 10.0%
+        # so external agents cannot lower or disable the 10% safety floor.
+        if min_rem := os.getenv("ESCHATON_MIN_REMAINING_PERCENT"):
+            try:
+                kwargs["min_remaining_usage_percent"] = max(
+                    MIN_REMAINING_USAGE_PERCENT, float(min_rem)
+                )
+            except ValueError:
+                pass
+        return cls(**kwargs)

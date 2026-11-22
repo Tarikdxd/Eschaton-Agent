@@ -1,5 +1,3 @@
-"""
-Eschaton-Agent: Evrensel Bilgisayar Kontrol Ajanı (Computer-Controlling Agent / CCA)
-"""
+"""Eschaton-Agent: Universal Antigravity Co-Agent Bridge & Orchestrator."""
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
