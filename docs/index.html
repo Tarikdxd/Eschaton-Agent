@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Eschaton-Agent — Evrensel Antigravity Köprüsü &amp; %10 Usage Kalkanı</title>
+  <meta
+    name="description"
+    content="Qoder, OpenCode, Claude Code ve Cursor ajanlarının yerel Antigravity uygulamana bağlanıp doğru projeyi ve en güncel Gemini 4 / Claude 5.5 modellerini seçerek %10 kullanım korumasıyla görev devretmesini sağlayan MCP + CLI köprüsü."
+  />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=UnifrakturMaguntia&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="#" class="brand">
+        <span class="brand-gothic">Eschaton</span>
+        <span class="brand-version">v2.0.0</span>
+      </a>
+
+      <nav class="nav-links" aria-label="Ana Menü">
+        <a href="#architecture">Mimari</a>
+        <a href="#models">Modeller</a>
+        <a href="#shield-simulator">%10 Kalkanı</a>
+        <a href="#integration">MCP &amp; CLI</a>
+        <a href="#tools">Araçlar</a>
+      </nav>
+
+      <div class="header-actions">
+        <button id="lang-toggle" class="lang-toggle" type="button" aria-label="Dil değiştir">EN</button>
+        <a
+          class="btn btn-primary"
+          href="https://github.com/Tarikdxd/Eschaton-Agent"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          GitHub
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <p class="hero-eyebrow" data-i18n="eyebrow">Evrensel Antigravity Co-Agent Köprüsü — Kasım 2026</p>
+        <h1 data-i18n="heroTitle">Eschaton Agent</h1>
+        <p class="hero-lead" data-i18n="heroLead">
+          Qoder, OpenCode, Claude Code ve Cursor’a bilgisayarındaki Antigravity masaüstü uygulamasını yardımcı ajan olarak ver. Doğru projeyi seçer, Gemini 4 &amp; Claude 5.5 serisi dahil en güncel modelleri benchmarklara göre atar ve kotanı asla %10’un altına düşürmez.
+        </p>
+
+        <div class="hero-cta-row">
+          <a
+            class="btn btn-primary"
+            href="https://github.com/Tarikdxd/Eschaton-Agent"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-i18n="ctaGithub"
+          >
+            GitHub Deposuna Git
+          </a>
+          <a class="btn btn-ghost" href="#shield-simulator" data-i18n="ctaSim">
+            %10 Kalkanını Test Et
+          </a>
+        </div>
+
+        <div class="quick-prompt-box">
+          <div>
+            <span class="quick-prompt-label" data-i18n="promptLabel">Qoder / OpenCode / Claude Code’a Yapıştır:</span>
+            <p id="agent-prompt-text" class="quick-prompt-text" data-i18n="promptText">
+              https://github.com/Tarikdxd/Eschaton-Agent reposunu kullanarak bilgisayarımdaki Antigravity'ye bağlan ve yardımcı ajan olarak kullan.
+            </p>
+          </div>
+          <button
+            class="btn btn-primary"
+            type="button"
+            data-copy-target="agent-prompt-text"
+            data-i18n="copyBtn"
+          >
+            Kopyala
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section">
+      <div class="container">
+        <div class="section-header">
+          <p class="section-kicker" data-i18n="archKicker">Çekirdek Mimari</p>
+          <h2 data-i18n="archTitle">Dört Katmanlı Orkestrasyon</h2>
+          <p data-i18n="archDesc">
+            Dış ajan yalnızca repo linkini okur; Eschaton-Agent kurulumdan %10 kota korumasına kadar tüm köprüyü otonom yönetir.
+          </p>
+        </div>
+
+        <div class="pillars-grid">
+          <article class="pillar-card">
+            <span class="pillar-num">01 / BRIDGE</span>
+            <h3 data-i18n="p1Title">Hibrit Electron CDP + UI Köprüsü</h3>
+            <p data-i18n="p1Desc">
+              Birincil olarak Antigravity’nin Electron CDP/DOM portu üzerinden fareyi meşgul etmeden arka planda çalışır; port kapalıysa UI otomasyonu yedeğine geçer.
+            </p>
+          </article>
+
+          <article class="pillar-card">
+            <span class="pillar-num">02 / WORKSPACE</span>
+            <h3 data-i18n="p2Title">Akıllı Proje / Workspace Seçici</h3>
+            <p data-i18n="p2Desc">
+              Dış ajanın çalıştığı dizini ve açık Antigravity pencerelerini tarayarak doğru projeyi otomatik eşleştirir, odaklar veya açar.
+            </p>
+          </article>
+
+          <article class="pillar-card">
+            <span class="pillar-num">03 / BENCHMARK ROUTER</span>
+            <h3 data-i18n="p3Title">Canlı Benchmark Model Seçici</h3>
+            <p data-i18n="p3Desc">
+              antigravity.google/docs/models, SWE-bench Verified, Aider Polyglot ve LiveCodeBench verilerini senkronize ederek her prompta en uygun güncel modeli seçer.
+            </p>
+          </article>
+
+          <article class="pillar-card">
+            <span class="pillar-num">04 / 10% USAGE SHIELD</span>
+            <h3 data-i18n="p4Title">%10 Korumalı Token &amp; Usage Kalkanı</h3>
+            <p data-i18n="p4Desc">
+              Gönderim öncesi token maliyetini hesaplar. Taşma riski veya %10 sınırını aşma ihtimali varsa promptu engeller, kotayı asla sıfırlamaz.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="models" class="section">
+      <div class="container">
+        <div class="section-header">
+          <p class="section-kicker" data-i18n="modelsKicker">Kasım 2026 Model Kataloğu</p>
+          <h2 data-i18n="modelsTitle">En Güncel Antigravity &amp; Frontier Modelleri</h2>
+          <p data-i18n="modelsDesc">
+            Resmi Antigravity, Anthropic ve OpenAI dokümanlarından senkronize edilen canlı model yönlendirme havuzu.
+          </p>
+        </div>
+
+        <div class="models-grid">
+          <div class="model-card">
+            <div class="model-card-top">
+              <h3>gemini-4-neon</h3>
+              <span class="model-tag">Google · Default</span>
+            </div>
+            <p>UI/UX, çoklu dosya mimarisi ve Extra (xhigh) düşünme seviyesi için Antigravity varsayılan lider modeli.</p>
+          </div>
+          <div class="model-card">
+            <div class="model-card-top">
+              <h3>gemini-4-carbon</h3>
+              <span class="model-tag">Google · Ultra</span>
+            </div>
+            <p>Ağır sistem mimarisi, dağıtık tasarım ve karmaşık çoklu-repo göçleri için en yüksek akıl yürütme gücü.</p>
+          </div>
+          <div class="model-card">
+            <div class="model-card-top">
+              <h3>gemini-4-hydrogen</h3>
+              <span class="model-tag">Google · Executor</span>
+            </div>
+            <p>Hızlı günlük kodlama, test üretimi ve Orchestrator yürütme adımları için yüksek hız/verimlilik.</p>
+          </div>
+          <div class="model-card">
+            <div class="model-card-top">
+              <h3>claude-opus-5.5</h3>
+              <span class="model-tag">Anthropic · 1M</span>
+            </div>
+            <p>Uzun soluklu ajantik kodlama, derin kök-neden hata ayıklama ve karmaşık refactoring lideri.</p>
+          </div>
+          <div class="model-card">
+            <div class="model-card-top">
+              <h3>claude-sonnet-5.5</h3>
+              <span class="model-tag">Anthropic · Fast</span>
+            </div>
+            <p>Hız ve zeka dengesinde SWE-bench &amp; Aider Polyglot en yüksek verim oranlı kodlama modeli.</p>
+          </div>
+          <div class="model-card">
+            <div class="model-card-top">
+              <h3>gemini-3.8-flash</h3>
+              <span class="model-tag">Economy Shield</span>
+            </div>
+            <p>Kota %10–%15 bandına indiğinde %10 Kalkanı tarafından otomatik devreye alınan ultra ekonomik model.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="shield-simulator" class="section">
+      <div class="container">
+        <div class="section-header">
+          <p class="section-kicker" data-i18n="simKicker">Canlı Simülasyon</p>
+          <h2 data-i18n="simTitle">%10 Usage Kalkanı</h2>
+          <p data-i18n="simDesc">
+            Kalan Antigravity kotasını, modeli ve prompt büyüklüğünü değiştirerek kalkanın ne zaman onay verdiğini, ne zaman Gemini 3.8 Flash ekonomi moduna geçtiğini ve ne zaman kilitlediğini görün.
+          </p>
+        </div>
+
+        <div class="simulator-shell">
+          <div>
+            <div class="control-group">
+              <label for="sim-remaining">
+                <span>Kalan Antigravity Kotası</span>
+                <span id="val-remaining" class="control-value">42.0%</span>
+              </label>
+              <input id="sim-remaining" type="range" min="0" max="100" step="0.5" value="42" />
+              <div class="quota-meter" aria-hidden="true">
+                <div class="quota-floor-marker" title="%10 Kesin Kilit Çizgisi"></div>
+                <div id="quota-fill" class="quota-fill" style="width: 42%;"></div>
+              </div>
+              <div class="quota-legend">
+                <span>0%</span>
+                <span>10% KİLİT</span>
+                <span>100%</span>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="sim-tokens">
+                <span>Prompt + Bağlam Büyüklüğü</span>
+                <span id="val-tokens" class="control-value">4,500 tok</span>
+              </label>
+              <input id="sim-tokens" type="range" min="300" max="35000" step="300" value="4500" />
+            </div>
+
+            <div class="control-group">
+              <label for="sim-model"><span>Hedef Model (Kasım 2026)</span></label>
+              <select id="sim-model">
+                <option value="gemini-4-neon">gemini-4-neon (1.15x — Default Frontier)</option>
+                <option value="claude-sonnet-5.5">claude-sonnet-5.5 (1.10x — Coding)</option>
+                <option value="claude-opus-5.5">claude-opus-5.5 (1.80x — Deep Debug)</option>
+                <option value="gemini-4-carbon">gemini-4-carbon (1.60x — Ultra Architect)</option>
+                <option value="claude-fable-5.2">claude-fable-5.2 (2.60x — Long-Horizon)</option>
+                <option value="gpt-6.2-astra">gpt-6.2-astra (1.60x — OpenAI Frontier)</option>
+                <option value="gemini-4-hydrogen">gemini-4-hydrogen (0.45x — Fast Executor)</option>
+                <option value="gemini-3.8-flash">gemini-3.8-flash (0.28x — Economy Shield)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="sim-result" aria-live="polite">
+            <span id="sim-badge" class="status-badge status-ok">OK — ALLOWED</span>
+            <div class="sim-metrics">
+              <div class="sim-metric">
+                <span>Tahmini Maliyet</span>
+                <strong id="metric-cost">%0.00</strong>
+              </div>
+              <div class="sim-metric">
+                <span>Gönderim Sonrası Kalan</span>
+                <strong id="metric-after">%0.00</strong>
+              </div>
+              <div class="sim-metric">
+                <span>Uygulanan Model</span>
+                <strong id="metric-model">gemini-4-neon</strong>
+              </div>
+              <div class="sim-metric">
+                <span>Kalkan Kararı</span>
+                <strong id="metric-action">Gönder</strong>
+              </div>
+            </div>
+            <p id="sim-reason" class="sim-reason"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="integration" class="section">
+      <div class="container">
+        <div class="section-header">
+          <p class="section-kicker" data-i18n="intKicker">Entegrasyon</p>
+          <h2 data-i18n="intTitle">MCP Sunucusu veya CLI</h2>
+          <p data-i18n="intDesc">
+            AGENTS.md, CLAUDE.md ve SKILL.md sayesinde dış ajanlar kurulum ve bağlantı protokolünü kendiliğinden anlar.
+          </p>
+        </div>
+
+        <div class="integration-grid">
+          <div class="code-panel">
+            <div class="code-panel-head">
+              <span>mcp_config.json (Qoder / OpenCode / Cursor)</span>
+              <button class="copy-mini" type="button" data-copy-target="code-mcp">Kopyala</button>
+            </div>
+            <pre><code id="code-mcp">{
+  "mcpServers": {
+    "eschaton-antigravity": {
+      "command": "eschaton-mcp",
+      "args": []
+    }
+  }
+}</code></pre>
+          </div>
+
+          <div class="code-panel">
+            <div class="code-panel-head">
+              <span>Terminal / CLI Kurulum &amp; Görev Devri</span>
+              <button class="copy-mini" type="button" data-copy-target="code-cli">Kopyala</button>
+            </div>
+            <pre><code id="code-cli">git clone https://github.com/Tarikdxd/Eschaton-Agent.git
+cd Eschaton-Agent && pip install -e .
+eschaton connect
+eschaton delegate "Auth hatasını bul ve test yaz" \
+  --project "$(pwd)" --role deep_debugger</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tools" class="section">
+      <div class="container">
+        <div class="section-header">
+          <p class="section-kicker" data-i18n="toolsKicker">MCP Araçları</p>
+          <h2 data-i18n="toolsTitle">5 Standart Araç</h2>
+        </div>
+
+        <div class="tools-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>MCP Tool</th>
+                <th>Görev</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>antigravity_status</code></td>
+                <td>CDP / UI bağlantı durumunu, açık projeleri, modelleri ve kalan % kotayı okur.</td>
+              </tr>
+              <tr>
+                <td><code>antigravity_select_project</code></td>
+                <td>Bilgisayardaki doğru proje dizinini bulup Antigravity ile eşleştirir veya açar.</td>
+              </tr>
+              <tr>
+                <td><code>antigravity_select_best_model</code></td>
+                <td>Resmi Antigravity Docs, SWE-bench, Aider ve LiveCodeBench verilerine göre en iyi modeli seçer.</td>
+              </tr>
+              <tr>
+                <td><code>antigravity_check_usage_shield</code></td>
+                <td>Gönderim öncesi token &amp; %10 koruma kalkanı doğrulaması yapar.</td>
+              </tr>
+              <tr>
+                <td><code>antigravity_delegate_task</code></td>
+                <td>Proje seçimi + model seçimi + %10 kalkanı + uzman rol ile görevi Antigravity’ye iletir.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>Eschaton-Agent v2.0.0 — MIT License</span>
+      <a href="https://github.com/Tarikdxd/Eschaton-Agent" target="_blank" rel="noopener noreferrer">
+        github.com/Tarikdxd/Eschaton-Agent
+      </a>
+    </div>
+  </footer>
+
+  <script src="./app.js"></script>
+</body>
+</html>
